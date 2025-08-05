@@ -1,7 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'; // Importing routing components
 import Dashboard from './pages/Dashboard/Dashboard'; // Import the Dashboard component
-import Transactions from './pages/Transactions/Transactions'; // Import the Transactions component
 
 function App() {
   return (
@@ -57,7 +56,7 @@ function App() {
           {/* Route for the Dashboard page */}
           <Route path="/" element={<Dashboard />} />
           {/* Route for the Transactions page */}
-          <Route path="/transactions" element={<Transactions />} />
+        
           {/* Add more routes here as you create new pages */}
           {/*
           <Route path="/budgets" element={<Budgets />} />
