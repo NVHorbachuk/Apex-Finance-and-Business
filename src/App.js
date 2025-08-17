@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'; // Importing routing components
 import Dashboard from './pages/Dashboard/Dashboard'; // Import the Dashboard component
+import Budgets from "./pages/Budgets/Budgets";
 
 function App() {
   return (
