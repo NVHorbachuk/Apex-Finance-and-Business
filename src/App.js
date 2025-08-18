@@ -14,6 +14,7 @@ import Register from './pages/Auth/Register';
 // Імпортуємо інші необхідні компоненти
 import Budgets from './pages/Budgets/Budgets';
 import Transactions from './pages/Transactions/Transactions';
+import Accounts from './pages/Accounts/Accounts';
 
 // Функція-обгортка для захищених маршрутів
 function ProtectedRoute({ children, isAuthenticated }) {
@@ -127,13 +128,13 @@ function App() {
               <Transactions />
             </ProtectedRoute>
           } />
-          {/* Решта закоментованих маршрутів */}
-          {/* <Route path="/accounts" element={
+        
+           <Route path="/accounts" element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
               <Accounts />
             </ProtectedRoute>
           } />
-          <Route path="/goals" element={
+          {/* <Route path="/goals" element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
               <Goals />
             </ProtectedRoute>

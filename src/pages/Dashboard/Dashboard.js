@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom'; // ДОДАНО: Імпорт Link дл
 import {
   HomeIcon, ClipboardDocumentListIcon, BellIcon, UserCircleIcon,
   ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon,
-  BanknotesIcon, CreditCardIcon, WalletIcon,
+  BanknotesIcon, CreditCardIcon, WalletIcon, // CreditCardIcon вже імпортована
   ChartBarIcon, ListBulletIcon, Squares2X2Icon
 } from '@heroicons/react/24/outline'; // Імпорт іконок
 
@@ -201,6 +201,7 @@ function Dashboard() {
             <Link to="/goals" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
               <ListBulletIcon className="h-5 w-5 mr-3" /> Goals
             </Link>
+            {/* Додано перехід на сторінку Accounts */}
             <Link to="/accounts" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
               <CreditCardIcon className="h-5 w-5 mr-3" /> Accounts
             </Link>
@@ -278,7 +279,7 @@ function Dashboard() {
                 <div className="flex items-center space-x-2">
                     <ChartBarIcon className="h-5 w-5 text-gray-400" />
                     {/* Заповнювач для точок меню */}
-                    <span className="text-xl font-bold text-gray-400">...</span>
+                    <span className="text-xl font-bold text-gray-400 ml-2">...</span>
                 </div>
             </div>
 
