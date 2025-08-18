@@ -1,10 +1,10 @@
 // src/App.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react'; // Цей імпорт залишається
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 
 // Імпортуємо Firebase
 import { initializeApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth'; // Видалено signInAnonymously
+import { getAuth, onAuthStateChanged, signInWithCustomToken } from 'firebase/auth';
 
 // Імпортуємо компоненти сторінок
 import Dashboard from './pages/Dashboard/Dashboard';
@@ -17,43 +17,33 @@ import Transactions from './pages/Transactions/Transactions';
 
 // Функція-обгортка для захищених маршрутів
 function ProtectedRoute({ children, isAuthenticated }) {
-  const navigate = useNavigate();
-  const currentLocation = window.location.pathname;
+  const navigate = useNavigate();
+  const currentLocation = window.location.pathname;
 
-  useEffect(() => {
-    console.log('ProtectedRoute: isAuthenticated current state:', isAuthenticated);
-    console.log('ProtectedRoute: Current path:', currentLocation);
+  useEffect(() => {
+    console.log('ProtectedRoute: isAuthenticated current state:', isAuthenticated);
+    console.log('ProtectedRoute: Current path:', currentLocation);
 
-    // Якщо користувач не автентифікований І не знаходиться на сторінці входу/реєстрації,
-    // то перенаправляємо на сторінку входу.
-    if (isAuthenticated === false && currentLocation !== '/login' && currentLocation !== '/register') {
-      console.log('ProtectedRoute: User not authenticated, redirecting to /login');
-      navigate('/login');
-    }
-    // Якщо користувач автентифікований І знаходиться на сторінці входу/реєстрації,
-    // то перенаправляємо на дашборд.
-    else if (isAuthenticated === true && (currentLocation === '/login' || currentLocation === '/register')) {
-        console.log('ProtectedRoute: User authenticated, redirecting from auth page to dashboard.');
-        navigate('/');
-    }
-  }, [isAuthenticated, navigate, currentLocation]);
+    if (isAuthenticated === false && currentLocation !== '/login' && currentLocation !== '/register') {
+      console.log('ProtectedRoute: User not authenticated, redirecting to /login');
+      navigate('/login');
+    } else if (isAuthenticated === true && (currentLocation === '/login' || currentLocation === '/register')) {
+        console.log('ProtectedRoute: User authenticated, redirecting from auth page to dashboard.');
+        navigate('/');
+    }
+  }, [isAuthenticated, navigate, currentLocation]);
 
-  if (isAuthenticated === null) { // Показуємо завантаження, поки стан автентифікації невідомий
-    console.log('ProtectedRoute: Authentication state is null (loading)...');
-    return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans']">Завантаження...</div>;
-  }
+  if (isAuthenticated === null) {
+    console.log('ProtectedRoute: Authentication state is null (loading)...');
+    return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans']">Завантаження...</div>;
+  }
 
-  // Якщо isAuthenticated === true, відображаємо дочірні елементи.
-  // Якщо isAuthenticated === false, useEffect вже мав би перенаправити.
-  return isAuthenticated ? children : null;
+  return isAuthenticated ? children : null;
 }
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import Dashboard from './pages/Dashboard/Dashboard';
-import Budgets from "./pages/Budgets/Budgets";
-function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(null);
 
+function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(null);
+// ... ваш інший код функції App
   useEffect(() => {
     const firebaseConfig = typeof window.__firebase_config !== 'undefined'
       ? JSON.parse(window.__firebase_config)
