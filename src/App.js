@@ -10,11 +10,13 @@ import { getAuth, onAuthStateChanged, signInWithCustomToken } from 'firebase/aut
 import Dashboard from './pages/Dashboard/Dashboard';
 import Login from './pages/Auth/Login';
 import Register from './pages/Auth/Register';
+import Goals from './pages/Goals/Goals';
 
 // Імпортуємо інші необхідні компоненти
 import Budgets from './pages/Budgets/Budgets';
 import Transactions from './pages/Transactions/Transactions';
 import Accounts from './pages/Accounts/Accounts';
+
 
 // Функція-обгортка для захищених маршрутів
 function ProtectedRoute({ children, isAuthenticated }) {
@@ -134,12 +136,12 @@ function App() {
               <Accounts />
             </ProtectedRoute>
           } />
-          {/* <Route path="/goals" element={
+          <Route path="/goals" element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
               <Goals />
             </ProtectedRoute>
           } />
-          <Route path="/settings" element={
+          {/* <Route path="/settings" element={
             <ProtectedRoute isAuthenticated={isAuthenticated}>
               <Settings />
             </ProtectedRoute>
@@ -154,7 +156,7 @@ function App() {
               <AdminPanel />
             </ProtectedRoute>
           } />
-          <Route path="*" element={<NotFound />} /> */}
+          <Route path="*" element={<NotFound />} />  */}
         </Routes>
       </main>
     </Router>
