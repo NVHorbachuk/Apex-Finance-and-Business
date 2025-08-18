@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 // src/App.js
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
@@ -48,13 +47,10 @@ function ProtectedRoute({ children, isAuthenticated }) {
   // Якщо isAuthenticated === false, useEffect вже мав би перенаправити.
   return isAuthenticated ? children : null;
 }
-=======
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'; // Importing routing components
-import Dashboard from './pages/Dashboard/Dashboard'; // Import the Dashboard component
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import Dashboard from './pages/Dashboard/Dashboard';
 import Budgets from "./pages/Budgets/Budgets";
->>>>>>> c78f19403b380887e21831847f4ad7820d1103d3
-
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(null);
 

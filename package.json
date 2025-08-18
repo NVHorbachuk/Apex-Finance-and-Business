@@ -9,13 +9,10 @@
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
     "chart.js": "^4.5.0",
-<<<<<<< HEAD
-    "firebase": "^12.1.0",
-=======
-    "framer-motion": "^12.23.12",
-    "lucide-react": "^0.539.0",
->>>>>>> c78f19403b380887e21831847f4ad7820d1103d3
-    "react": "^19.1.1",
+"firebase": "^12.1.0",
+"framer-motion": "^12.23.12",
+"lucide-react": "^0.539.0",
+"react": "^19.1.1",
     "react-chartjs-2": "^5.3.0",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.8.0",
