@@ -1,9 +1,9 @@
-// src/pages/Dashboard/Dashboard.js
 import React, { useState, useEffect } from 'react';
 import { Line, Pie, Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, ArcElement, BarElement, Tooltip, Legend } from 'chart.js';
 // ДОДАНО: Імпорт FillerPlugin
 import { Filler as FillerPlugin } from 'chart.js';
+import { Link } from 'react-router-dom'; // ДОДАНО: Імпорт Link для навігації
 import {
   HomeIcon, ClipboardDocumentListIcon, BellIcon, UserCircleIcon,
   ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon,
@@ -191,24 +191,25 @@ function Dashboard() {
 
           {/* Навігаційні посилання */}
           <nav className="space-y-4">
-            <a href="/" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+            {/* Оновлено: використання Link замість a */}
+            <Link to="/" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
               <HomeIcon className="h-5 w-5 mr-3" /> Home
-            </a>
-            <a href="/budgets" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+            </Link>
+            <Link to="/budgets" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
               <BanknotesIcon className="h-5 w-5 mr-3" /> Budgets
-            </a>
-            <a href="/goals" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+            </Link>
+            <Link to="/goals" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
               <ListBulletIcon className="h-5 w-5 mr-3" /> Goals
-            </a>
-            <a href="/accounts" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+            </Link>
+            <Link to="/accounts" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
               <CreditCardIcon className="h-5 w-5 mr-3" /> Accounts
-            </a>
-            <a href="/transactions" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+            </Link>
+            <Link to="/transactions" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
               <ClipboardDocumentListIcon className="h-5 w-5 mr-3" /> Transactions
-            </a>
-            <a href="/categories" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+            </Link>
+            <Link to="/categories" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
               <Squares2X2Icon className="h-5 w-5 mr-3" /> Categories
-            </a>
+            </Link>
           </nav>
         </div>
 
