@@ -1,155 +1,370 @@
 // src/pages/Dashboard/Dashboard.js
-import React from 'react';
-import { Line, Pie } from 'react-chartjs-2'; // Importing chart components
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Tooltip, Legend } from 'chart.js';
+import React, { useState, useEffect } from 'react';
+import { Line, Pie, Bar } from 'react-chartjs-2';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, ArcElement, BarElement, Tooltip, Legend } from 'chart.js';
+// ДОДАНО: Імпорт FillerPlugin
+import { Filler as FillerPlugin } from 'chart.js';
+import {
+  HomeIcon, ClipboardDocumentListIcon, BellIcon, UserCircleIcon,
+  ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon,
+  BanknotesIcon, CreditCardIcon, WalletIcon,
+  ChartBarIcon, ListBulletIcon, Squares2X2Icon
+} from '@heroicons/react/24/outline'; // Імпорт іконок
 
-// Register Chart.js components
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Tooltip, Legend);
+// Реєстрація компонентів Chart.js та ДОДАНО FillerPlugin
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, BarElement, Tooltip, Legend, FillerPlugin);
 
-// Placeholder data for charts and other dashboard elements
-const chartData = {
-  labels: ['Січ', 'Лют', 'Бер', 'Кві', 'Тра', 'Чер'], // Labels for the x-axis (months)
+// URL для логотипу (тепер посилається на файл у папці public)
+const logoUrl = "/image.png";
+
+// Дані-заглушки (будуть замінені фактичними викликами API)
+const dummyChartData = {
+  labels: ['1.5', '2.5', '3.5', '4.5'], // Приклад міток для лінійного графіка
   datasets: [
     {
-      label: 'Доходи', // Label for income data
-      data: [1200, 1500, 1300, 1600, 1700, 1800], // Sample income data
-      borderColor: 'rgba(75, 192, 192, 1)', // Line color for income
-      backgroundColor: 'rgba(75, 192, 192, 0.2)', // Fill color for income
-      fill: true, // Fill area under the line
-      tension: 0.3, // Curve tension for the line
+      label: 'Транзакції',
+      data: [300, 200, 450, 250], // Приклад даних для лінійного графіка
+      borderColor: 'rgba(128, 90, 213, 1)', // Фіолетовий колір для лінії
+      backgroundColor: 'rgba(128, 90, 213, 0.2)',
+      fill: true, // Залишити fill: true
+      tension: 0.5,
+      pointRadius: 0, // Прибрати точки на лінії
     },
     {
-      label: 'Витрати', // Label for expense data
-      data: [800, 900, 1100, 1000, 1200, 1300], // Sample expense data
-      borderColor: 'rgba(255, 99, 132, 1)', // Line color for expenses
-      backgroundColor: 'rgba(255, 99, 132, 0.2)', // Fill color for expenses
-      fill: true, // Fill area under the line
-      tension: 0.3, // Curve tension for the line
+        label: 'Бюджет', // Друга лінія
+        data: [250, 180, 400, 200], // Приклад даних для другої лінії
+        borderColor: 'rgba(128, 90, 213, 0.5)', // Світліший фіолетовий
+        backgroundColor: 'transparent',
+        fill: false,
+        tension: 0.5,
+        pointRadius: 0,
+    }
+  ],
+};
+
+const dummyBarChartData = {
+  labels: ['27.4', '28.4', '29.4', '30.4', '1.5', '2.5', '3.5', '4.5'],
+  datasets: [
+    {
+      label: 'Кількість транзакцій',
+      data: [100, 150, 200, 120, 180, 220, 190, 140],
+      backgroundColor: 'rgba(99, 102, 241, 0.6)', // Синій колір для стовпців
+      borderRadius: 5, // Заокруглені кути стовпців
+      barThickness: 10, // Товщина стовпців
     },
   ],
 };
 
-const pieChartData = {
-  labels: ['Продукти', 'Транспорт', 'Розваги', 'Комунальні'], // Labels for pie chart segments
+const dummyPieChartData = {
+  labels: ['sZlw - 1', 'DASO - 1', 'Dog - 2', 'test test 123 456 - 2', 'Category 1 - 3', 'Categoryyyyyy - 9'],
   datasets: [
     {
-      data: [300, 150, 100, 200], // Sample data for pie chart segments
-      backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0'], // Colors for segments
-      hoverBackgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0'], // Hover colors
+      data: [30, 20, 15, 10, 10, 15],
+      backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9900'],
+      hoverOffset: 4,
     },
   ],
 };
 
-const recentTransactions = [
-  { id: 1, description: 'Кава', amount: -50, date: '01.08.2025', type: 'expense' }, // Sample transaction
-  { id: 2, description: 'Зарплата', amount: 25000, date: '31.07.2025', type: 'income' }, // Sample transaction
-  { id: 3, description: 'Квитки в кіно', amount: -200, date: '30.07.2025', type: 'expense' }, // Sample transaction
-];
-
-const reminders = [
-  { id: 1, text: 'Оплатити рахунок за інтернет (10.08.2025)', type: 'payment' }, // Sample reminder
-  { id: 2, text: 'Переглянути бюджет на серпень', type: 'budget' }, // Sample reminder
+// Дані календаря (статичне представлення для дизайну)
+const monthsData = [
+    { name: 'Квітень 2023', days: Array.from({ length: 30 }, (_, i) => i + 1), offset: 6, highlighted: [27,28,29,30]}, // Починається з Суботи
+    { name: 'Травень 2023', days: Array.from({ length: 31 }, (_, i) => i + 1), offset: 1, highlighted: []} // Починається з Понеділка
 ];
 
 function Dashboard() {
+  // Стани для динамічних даних (наразі використовуються дані-заглушки)
+  const [currentAccount, setCurrentAccount] = useState('Account 1'); // Для вибору рахунку
+  const [currentBudget, setCurrentBudget] = useState('Budget 1'); // Для вибору бюджету
+
+  // useEffect використовується для ініціалізації даних графіків (незважаючи на попередження ESLint)
+  useEffect(() => {
+    // Тут може бути логіка для завантаження даних з API
+    // Наразі використовуємо dummyChartData, dummyBarChartData, dummyPieChartData
+  }, []);
+
+  // Опції графіків для візуальної відповідності
+  const lineChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false, // Приховати легенду для мінімалізму
+      },
+      tooltip: {
+        enabled: true,
+      }
+    },
+    scales: {
+      x: {
+        grid: {
+          display: false, // Приховати сітку по осі X
+        },
+        ticks: {
+          display: true, // Показати мітки осі X
+          font: {
+            size: 10 // Менший розмір шрифту для міток осі X
+          }
+        }
+      },
+      y: {
+        beginAtZero: true,
+        grid: {
+          display: true, // Показати сітку по осі Y
+          color: 'rgba(200, 200, 200, 0.2)'
+        },
+        ticks: {
+          stepSize: 100, // Крок міток на осі Y
+          font: {
+            size: 10 // Менший розмір шрифту для міток осі Y
+          }
+        }
+      },
+    },
+  };
+
+  const barChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false, // Приховати легенду
+      },
+      tooltip: {
+        enabled: true,
+      }
+    },
+    scales: {
+      x: {
+        grid: {
+          display: false,
+        },
+        ticks: {
+          font: {
+            size: 10 // Менший розмір шрифту для міток осі X
+          }
+        }
+      },
+      y: {
+        beginAtZero: true,
+        grid: {
+            display: false, // Приховати сітку по осі Y
+        },
+        ticks: {
+            display: false, // Приховати мітки по осі Y
+        }
+      },
+    },
+  };
+
+  const pieChartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'right', // Розташувати легенду праворуч
+        labels: {
+          boxWidth: 10, // Розмір кольорових квадратів
+          font: {
+            size: 10 // Розмір шрифту легенди
+          }
+        }
+      },
+      tooltip: {
+        enabled: true,
+      }
+    },
+  };
+
+
   return (
-    <div className="min-h-screen bg-gray-100 p-4 sm:p-6 lg:p-8">
-      {/* Dashboard Header */}
-      <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 mb-6">Дашборд</h1>
-
-      {/* Current Balance Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-md flex items-center justify-between">
-          <div>
-            <p className="text-lg text-gray-600">Загальний баланс</p>
-            <p className="text-4xl font-extrabold text-blue-600">15,000 ₴</p>
+    // Головний контейнер з повною висотою екрану, фоном F7FAFC та шрифтом DM Sans
+    <div className="flex min-h-screen bg-[#F7FAFC] font-['DM Sans']">
+      {/* Бічна панель */}
+      <aside className="w-64 bg-white p-6 shadow-xl flex flex-col justify-between rounded-r-xl">
+        <div>
+          {/* Логотип та назва додатку */}
+          <div className="flex items-center mb-10">
+            <img src={logoUrl} alt="Finance Manager Logo" className="w-8 h-8 mr-2 object-contain" />
+            <span className="text-xl font-bold text-gray-900">Finance Manager</span>
           </div>
-          {/* Placeholder for an icon */}
-          <svg className="w-12 h-12 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-        </div>
-        {/* Example Account Balance */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <p className="text-lg text-gray-600">Основний рахунок</p>
-          <p className="text-3xl font-bold text-green-600">12,500 ₴</p>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <p className="text-lg text-gray-600">Кредитна картка</p>
-          <p className="text-3xl font-bold text-red-600">-2,000 ₴</p>
-        </div>
-      </div>
 
-      {/* Graphs Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-2xl font-semibold text-gray-700 mb-4">Доходи та Витрати (Останні 6 місяців)</h2>
-          <Line data={chartData} /> {/* Line chart for income/expenses */}
+          {/* Навігаційні посилання */}
+          <nav className="space-y-4">
+            <a href="/" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+              <HomeIcon className="h-5 w-5 mr-3" /> Home
+            </a>
+            <a href="/budgets" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+              <BanknotesIcon className="h-5 w-5 mr-3" /> Budgets
+            </a>
+            <a href="/goals" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+              <ListBulletIcon className="h-5 w-5 mr-3" /> Goals
+            </a>
+            <a href="/accounts" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+              <CreditCardIcon className="h-5 w-5 mr-3" /> Accounts
+            </a>
+            <a href="/transactions" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+              <ClipboardDocumentListIcon className="h-5 w-5 mr-3" /> Transactions
+            </a>
+            <a href="/categories" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+              <Squares2X2Icon className="h-5 w-5 mr-3" /> Categories
+            </a>
+          </nav>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-2xl font-semibold text-gray-700 mb-4">Розподіл Витрат</h2>
-          <div className="h-64 flex items-center justify-center"> {/* Container for pie chart */}
-            <Pie data={pieChartData} /> {/* Pie chart for expense distribution */}
-          </div>
-        </div>
-      </div>
 
-      {/* Budget Status & Recent Transactions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-2xl font-semibold text-gray-700 mb-4">Поточний статус бюджету</h2>
-          <div className="space-y-4">
-            {/* Sample Budget Item */}
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-lg font-medium text-gray-800">Продукти</p>
-                <p className="text-sm text-gray-500">Витрачено: 800 ₴ з 1000 ₴</p>
-              </div>
-              <div className="w-1/2 bg-gray-200 rounded-full h-2.5">
-                <div className="bg-green-500 h-2.5 rounded-full" style={{ width: '80%' }}></div> {/* Progress bar */}
-              </div>
-              <span className="text-green-600 font-bold">80%</span>
+        {/* Заповнювач для майбутніх елементів знизу, якщо такі будуть */}
+        {/* <div className="mt-auto">...</div> */}
+      </aside>
+
+      {/* Основна область контенту */}
+      {/* Максимальна ширина встановлена для дизайну 1440px, враховуючи ширину бічної панелі (1440 - 256 = 1184px) */}
+      <div className="flex-1 flex flex-col p-6 max-w-[1184px] mx-auto">
+        {/* Верхній бар */}
+        <header className="bg-white p-4 rounded-xl shadow-md flex justify-end items-center mb-6">
+          <div className="flex items-center space-x-6">
+            {/* Вибір бюджету */}
+            <div className="relative">
+              <select
+                className="appearance-none bg-gray-100 text-gray-800 font-semibold py-2 px-4 rounded-lg pr-8 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-300"
+                value={currentBudget}
+                onChange={(e) => setCurrentBudget(e.target.value)}
+              >
+                <option value="Budget 1">Budget 1</option>
+                <option value="Budget 2">Budget 2</option>
+              </select>
+              <ChevronDownIcon className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
             </div>
-            {/* Another Sample Budget Item */}
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-lg font-medium text-gray-800">Транспорт</p>
-                <p className="text-sm text-gray-500">Витрачено: 400 ₴ з 300 ₴</p>
+
+            {/* Іконка сповіщень */}
+            <BellIcon className="h-6 w-6 text-gray-500 cursor-pointer hover:text-blue-600" />
+
+            {/* Інформація про користувача */}
+            <div className="flex items-center space-x-2">
+              <UserCircleIcon className="h-8 w-8 text-blue-500" />
+              <div className="text-sm">
+                <p className="font-semibold text-gray-800">Test123</p>
+                <p className="text-gray-500">test@npm.ua</p>
               </div>
-              <div className="w-1/2 bg-gray-200 rounded-full h-2.5">
-                <div className="bg-red-500 h-2.5 rounded-full" style={{ width: '100%' }}></div> {/* Over budget */}
-              </div>
-              <span className="text-red-600 font-bold">133%</span>
             </div>
           </div>
-        </div>
+        </header>
 
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-2xl font-semibold text-gray-700 mb-4">Останні транзакції</h2>
-          <ul className="divide-y divide-gray-200">
-            {recentTransactions.map(transaction => (
-              <li key={transaction.id} className="py-3 flex justify-between items-center">
-                <div>
-                  <p className="text-lg text-gray-800">{transaction.description}</p>
-                  <p className="text-sm text-gray-500">{transaction.date}</p>
+        {/* Головний заголовок дашборду */}
+        <h1 className="text-3xl font-bold text-gray-800 mb-6">
+          Main Dashboard for
+          <span className="relative inline-block ml-2">
+            <select
+              className="appearance-none bg-transparent text-blue-600 font-bold pr-6 cursor-pointer focus:outline-none focus:ring-0"
+              value={currentAccount}
+              onChange={(e) => setCurrentAccount(e.target.value)}
+            >
+              <option value="Account 1">Account 1</option>
+              <option value="Account 2">Account 2</option>
+              <option value="Account 3">Account 3</option>
+            </select>
+            <ChevronDownIcon className="absolute right-0 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-600 pointer-events-none" />
+          </span>
+        </h1>
+
+
+        {/* Сітка вмісту дашборду */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Секція календаря та лінійного графіка */}
+          <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 flex flex-col">
+            {/* Заголовок календаря */}
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold text-gray-800">04/27/2023 - 05/04/2023</h2>
+                <div className="flex items-center space-x-2">
+                    <ChartBarIcon className="h-5 w-5 text-gray-400" />
+                    {/* Заповнювач для точок меню */}
+                    <span className="text-xl font-bold text-gray-400">...</span>
                 </div>
-                <p className={`text-lg font-semibold ${transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                  {transaction.type === 'income' ? '+' : ''}{transaction.amount} ₴
-                </p>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
+            </div>
 
-      {/* Reminders Section */}
-      <div className="bg-white p-6 rounded-lg shadow-md mb-8">
-        <h2 className="text-2xl font-semibold text-gray-700 mb-4">Нагадування</h2>
-        <ul className="divide-y divide-gray-200">
-          {reminders.map(reminder => (
-            <li key={reminder.id} className="py-3 text-lg text-gray-800">
-              {reminder.text}
-            </li>
-          ))}
-        </ul>
+            {/* Календарі */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {monthsData.map((month, monthIdx) => (
+                    <div key={monthIdx} className="calendar-month p-3 bg-gray-50 rounded-lg">
+                        <div className="flex justify-between items-center text-sm font-medium mb-3">
+                            <ChevronLeftIcon className="h-4 w-4 text-gray-500 cursor-pointer" />
+                            <span>{month.name}</span>
+                            <ChevronRightIcon className="h-4 w-4 text-gray-500 cursor-pointer" />
+                        </div>
+                        <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-500 mb-2">
+                            {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'].map(day => <span key={day}>{day}</span>)}
+                        </div>
+                        <div className="grid grid-cols-7 gap-1 text-center text-sm">
+                            {Array.from({ length: month.offset }).map((_, i) => ( // Порожні клітинки для зміщення
+                                <span key={`empty-${monthIdx}-${i}`} className="p-1"></span>
+                            ))}
+                            {month.days.map(day => (
+                                <span
+                                    key={`day-${monthIdx}-${day}`}
+                                    className={`p-1 rounded-full ${
+                                        month.highlighted.includes(day)
+                                            ? 'bg-purple-200 text-purple-800 font-bold' // Виділені дати
+                                            : 'text-gray-800'
+                                    }`}
+                                >
+                                    {day}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+          </div>
+
+          {/* Графік огляду балансу */}
+          <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 flex flex-col justify-between">
+            <div className="flex justify-end items-center w-full mb-4">
+                <ChartBarIcon className="h-5 w-5 text-gray-400" />
+                {/* Заповнювач для точок меню */}
+                <span className="text-xl font-bold text-gray-400 ml-2">...</span>
+            </div>
+            <div className="relative h-48 w-full">
+              <Line data={dummyChartData} options={lineChartOptions} />
+            </div>
+            <div className="mt-4 text-center">
+              <p className="text-5xl font-extrabold text-blue-600 mb-1">$37.5K</p>
+              <p className="text-sm text-gray-600">Total spent <span className="text-green-500 font-semibold">+2.58%</span></p>
+              <p className="text-xs text-green-500">On track</p>
+            </div>
+          </div>
+
+          {/* Гістограма кількості транзакцій */}
+          <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 col-span-1 lg:col-span-1">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-semibold text-gray-800">Transactions quantity</h2>
+              <ChartBarIcon className="h-5 w-5 text-gray-400" />
+            </div>
+            <div className="relative h-48 w-full">
+              <Bar data={dummyBarChartData} options={barChartOptions} />
+            </div>
+          </div>
+
+          {/* Кругова діаграма популярних категорій */}
+          <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 col-span-1 lg:col-span-1">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-4">Popular categories</h2>
+            <div className="flex flex-col md:flex-row items-center justify-between">
+              <div className="relative h-56 w-56 md:w-1/2 flex items-center justify-center mb-4 md:mb-0">
+                <Pie data={dummyPieChartData} options={pieChartOptions} />
+              </div>
+              {/* Список категорій під круговою діаграмою */}
+              <ul className="text-gray-700 text-sm space-y-2 w-full md:w-1/2 pl-0 md:pl-4">
+                {dummyPieChartData.labels.map((label, index) => (
+                  <li key={label} className="flex items-center">
+                    <span
+                      className="inline-block w-3 h-3 rounded-full mr-2"
+                      style={{ backgroundColor: dummyPieChartData.datasets[0].backgroundColor[index] }}
+                    ></span>
+                    {label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

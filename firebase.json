@@ -1,0 +1,42 @@
+{
+  "hosting": {
+    "public": "build",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
+  "emulators": {
+    "auth": {
+      "port": 9100
+    },
+    "firestore": {
+      "port": 8081
+    },
+    "hosting": {
+      "port": 5001
+    },
+    "pubsub": {
+      "port": 8086
+    },
+    "storage": {
+      "port": 9200
+    },
+    "database": {
+      "port": 9001
+    },
+    "ui": {
+      "port": 4001
+    },
+    "eventflow": {
+      "port": 9300
+    }
+  }
+}
