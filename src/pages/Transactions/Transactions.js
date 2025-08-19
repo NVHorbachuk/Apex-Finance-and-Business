@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'; // Видалено useCallback з імпорту
+import React, { useState, useEffect } from 'react';
 import {
     PlusCircleIcon,
     PencilIcon,
@@ -8,7 +8,6 @@ import {
 } from '@heroicons/react/24/outline';
 
 // Імпорт функцій Firestore
-// Залишено тільки ті, що безпосередньо використовуються
 import { collection, query, where, onSnapshot, doc, runTransaction } from 'firebase/firestore'; 
 
 // Імпорт компонентів бічної панелі та хедера
@@ -85,12 +84,27 @@ function Transactions({ db, auth, userId }) {
         });
 
         // 2. Отримання категорій (припустимо, вони також зберігаються користувачем)
-        // Якщо категорії глобальні, шлях буде відрізнятися, наприклад, `/categories`
         const categoriesCollectionRef = collection(db, `/artifacts/${appId}/users/${userId}/categories`);
         const unsubscribeCategories = onSnapshot(categoriesCollectionRef, (snapshot) => {
             const fetchedCategories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            // Припускаємо, що категорії мають поле 'name'
-            setCategories(fetchedCategories.map(cat => cat.name));
+            
+            // Якщо категорії не завантажені з Firestore, використовуємо значення за замовчуванням
+            if (fetchedCategories.length === 0) {
+                setCategories([
+                    'Їжа',
+                    'Транспорт',
+                    'Житло',
+                    'Розваги',
+                    'Одяг',
+                    'Здоров\'я',
+                    'Освіта',
+                    'Подорожі',
+                    'Комунальні послуги',
+                    'Інше'
+                ]);
+            } else {
+                setCategories(fetchedCategories.map(cat => cat.name));
+            }
         }, (err) => {
             console.error("Transactions: Помилка отримання категорій:", err);
             setError(err);
@@ -247,6 +261,15 @@ function Transactions({ db, auth, userId }) {
         )
         .sort((a, b) => new Date(b.date) - new Date(a.date)); // Сортування за датою DESC
 
+    // Обчислення загальних витрат за категоріями для відображення
+    const totalSpentByCategory = filteredTransactions
+        .filter(t => t.type === 'expense')
+        .reduce((acc, transaction) => {
+            const category = transaction.category || 'Без категорії'; // Переконайтеся, що є категорія
+            acc[category] = (acc[category] || 0) + Math.abs(transaction.amount);
+            return acc;
+        }, {});
+
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans']">Завантаження даних...</div>;
     if (error) return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans'] text-red-500">Помилка: {error.message}</div>;
 
@@ -272,7 +295,7 @@ function Transactions({ db, auth, userId }) {
                         <Link to="/accounts" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
                             <CreditCardIcon className="h-5 w-5 mr-3" /> Accounts
                         </Link>
-                        <Link to="/transactions" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                        <Link to="/transactions" className="flex items-center text-blue-600 bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
                             <ClipboardDocumentListIcon className="h-5 w-5 mr-3" /> Transactions
                         </Link>
                         <Link to="/categories" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
@@ -358,6 +381,25 @@ function Transactions({ db, auth, userId }) {
                     </select>
                 </div>
 
+                {/* NEW: Category Expenses Summary Card */}
+                <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+                    <h2 className="text-xl font-semibold text-gray-700 mb-4">Витрати за категоріями (поточні фільтри)</h2>
+                    {Object.keys(totalSpentByCategory).length === 0 ? (
+                        <p className="text-gray-500">Немає витрат за категоріями з поточними фільтрами.</p>
+                    ) : (
+                        <div className="space-y-2">
+                            {Object.entries(totalSpentByCategory)
+                                .sort(([, amountA], [, amountB]) => amountB - amountA) // Сортування за сумою спадання
+                                .map(([category, amount]) => (
+                                    <div key={category} className="flex justify-between items-center text-gray-800 text-sm border-b border-gray-100 pb-2 last:border-b-0">
+                                        <span className="font-medium">{category}</span>
+                                        <span className="font-semibold text-red-600">-${amount.toFixed(2)}</span>
+                                    </div>
+                                ))}
+                        </div>
+                    )}
+                </div>
+
                 {/* Transaction List */}
                 <div className="bg-white p-6 rounded-lg shadow-md">
                     <h2 className="text-2xl font-semibold text-gray-700 mb-4">Список транзакцій</h2>
@@ -384,7 +426,7 @@ function Transactions({ db, auth, userId }) {
                                             <td className="px-6 py-4 text-sm text-gray-900">{t.date}</td>
                                             <td className="px-6 py-4 text-sm text-gray-900">{t.description}</td>
                                             <td className={`px-6 py-4 text-sm font-semibold ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                                                {t.type === 'income' ? '+' : ''}{Math.abs(t.amount)} ₴
+                                                {t.type === 'income' ? '+' : ''}{Math.abs(t.amount).toFixed(2)} ₴
                                             </td>
                                             <td className="px-6 py-4 text-sm text-gray-900">{t.category}</td>
                                             <td className="px-6 py-4 text-sm text-gray-900">
