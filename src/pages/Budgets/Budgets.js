@@ -351,7 +351,7 @@ function Budgets({ db, auth, userId }) {
                 )}
 
                 {/* Delete Confirmation Modal */}
-                {showDeleteConfirm && selectedBudget && (
+                {showDeleteConfirm && (
                     <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4">
                         <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
                             <div className="flex items-center text-red-500 mb-4">

@@ -8,7 +8,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 // Імпорт функцій Firestore
-import { collection, query, where, onSnapshot, doc, runTransaction } from 'firebase/firestore'; 
+import { collection, onSnapshot, doc, runTransaction } from 'firebase/firestore'; 
 
 // Імпорт компонентів бічної панелі та хедера
 import { HomeIcon, ClipboardDocumentListIcon, BellIcon, UserCircleIcon, ChevronDownIcon, BanknotesIcon, CreditCardIcon, Squares2X2Icon, ListBulletIcon } from '@heroicons/react/24/outline';
@@ -16,6 +16,20 @@ import { Link } from 'react-router-dom';
 
 // URL для логотипу (посилається на файл у папці public)
 const logoUrl = "/image.png";
+
+// Новий список категорій за замовчуванням
+const DEFAULT_CATEGORIES = [
+    'Їжа',
+    'Транспорт',
+    'Житло',
+    'Розваги',
+    'Одяг',
+    'Здоров\'я',
+    'Освіта',
+    'Подорожі',
+    'Комунальні послуги',
+    'Інше'
+];
 
 function Transactions({ db, auth, userId }) {
     // Стан для транзакцій, рахунків та категорій, отриманих з Firestore
@@ -90,18 +104,7 @@ function Transactions({ db, auth, userId }) {
             
             // Якщо категорії не завантажені з Firestore, використовуємо значення за замовчуванням
             if (fetchedCategories.length === 0) {
-                setCategories([
-                    'Їжа',
-                    'Транспорт',
-                    'Житло',
-                    'Розваги',
-                    'Одяг',
-                    'Здоров\'я',
-                    'Освіта',
-                    'Подорожі',
-                    'Комунальні послуги',
-                    'Інше'
-                ]);
+                setCategories(DEFAULT_CATEGORIES); // Використовуємо DEFAULT_CATEGORIES
             } else {
                 setCategories(fetchedCategories.map(cat => cat.name));
             }

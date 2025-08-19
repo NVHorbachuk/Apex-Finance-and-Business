@@ -43,7 +43,7 @@ function Dashboard({ db, auth, userId }) {
 
     // Стан для даних графіків та зведень
     const [lineChartData, setLineChartData] = useState({ labels: [], datasets: [] });
-    const [barChartData, setBarChartData] = useState({ labels: [], datasets: [] });
+    // const [barChartData, setBarChartData] = useState({ labels: [], datasets: [] }); // Видалено з використання
     const [pieChartData, setPieChartData] = useState({ labels: [], datasets: [] });
     const [overallBalance, setOverallBalance] = useState(0); // Загальний баланс
     const [latestTransactions, setLatestTransactions] = useState([]);
@@ -150,33 +150,33 @@ function Dashboard({ db, auth, userId }) {
             ],
         });
 
-        // Bar Chart: Кількість транзакцій за день
-        const dailyTxnCount = fetchedTransactions.reduce((acc, transaction) => {
-            const transactionDate = new Date(transaction.date);
-            if (isNaN(transactionDate.getTime())) return acc;
-            const dateKey = transactionDate.toLocaleDateString('uk-UA');
-            if (!acc[dateKey]) {
-                acc[dateKey] = 0;
-            }
-            acc[dateKey] += 1;
-            return acc;
-        }, {});
+        // Bar Chart: Кількість транзакцій за день - Цей графік НЕ ВИКОРИСТОВУЄТЬСЯ в поточній версії, тому його відповідні дані та опції можуть бути видалені, щоб уникнути помилок ESLint
+        // const dailyTxnCount = fetchedTransactions.reduce((acc, transaction) => {
+        //     const transactionDate = new Date(transaction.date);
+        //     if (isNaN(transactionDate.getTime())) return acc;
+        //     const dateKey = transactionDate.toLocaleDateString('uk-UA');
+        //     if (!acc[dateKey]) {
+        //         acc[dateKey] = 0;
+        //     }
+        //     acc[dateKey] += 1;
+        //     return acc;
+        // }, {});
 
-        const barLabels = Object.keys(dailyTxnCount).sort((a, b) => parseDateStringForSort(a) - parseDateStringForSort(b));
-        const barValues = barLabels.map(label => dailyTxnCount[label]);
+        // const barLabels = Object.keys(dailyTxnCount).sort((a, b) => parseDateStringForSort(a) - parseDateStringForSort(b));
+        // const barValues = barLabels.map(label => dailyTxnCount[label]);
 
-        setBarChartData({
-            labels: barLabels,
-            datasets: [
-                {
-                    label: 'Кількість транзакцій',
-                    data: barValues,
-                    backgroundColor: '#3182CE', // Яскравий синій для транзакцій
-                    borderRadius: 5,
-                    barThickness: 10,
-                },
-            ],
-        });
+        // setBarChartData({
+        //     labels: barLabels,
+        //     datasets: [
+        //         {
+        //             label: 'Кількість транзакцій',
+        //             data: barValues,
+        //             backgroundColor: '#3182CE', // Яскравий синій для транзакцій
+        //             borderRadius: 5,
+        //             barThickness: 10,
+        //         },
+        //     ],
+        // });
 
         // Pie Chart: Витрати за категоріями
         const categorySpending = fetchedTransactions.filter(t => t.type === 'expense').reduce((acc, transaction) => {
@@ -317,7 +317,7 @@ function Dashboard({ db, auth, userId }) {
         return () => {
             unsubscribes.forEach(unsub => unsub());
         };
-    }, [db, userId, appId, currentAccount]);
+    }, [db, userId, appId, currentAccount]); // currentAccount залишається тут, оскільки він впливає на запит транзакцій
 
     // Ефект для зняття екрану завантаження після завантаження всіх джерел даних
     useEffect(() => {
@@ -328,17 +328,22 @@ function Dashboard({ db, auth, userId }) {
     }, [loadedSourcesCount]);
 
     // Ефект для обробки даних після їх завантаження або зміни
+    // Цей ефект запуститься лише тоді, коли `loading` стане `false`
     useEffect(() => {
         if (!loading) {
+            // Перевіряємо, чи є хоч якісь дані або ж усі джерела порожні
             const hasData = accounts.length > 0 || transactions.length > 0 || goals.length > 0 || budgets.length > 0;
-            if (hasData || loadedSourcesCount === 4) {
+            if (hasData || loadedSourcesCount === 4) { // Обробляємо дані, якщо вони є, або якщо всі джерела завантажені (навіть якщо порожні)
                 processFinancialData(transactions, accounts);
+            } else if (!hasData && loadedSourcesCount < 4) {
+                 // Ще не всі джерела завантажені або даних немає, але це не фінальний стан.
+                 // Нічого не робити, чекати повного завантаження.
             }
         }
     }, [transactions, accounts, goals, budgets, loading, processFinancialData, loadedSourcesCount]);
 
 
-    // Функція для додавання нового рахунку (без змін)
+    // Функція для додавання нового рахунку
     const handleAddAccount = async (e) => {
         e.preventDefault();
         if (!db || !userId || !newAccountName.trim() || isNaN(parseFloat(newAccountBalance))) {
@@ -492,9 +497,10 @@ function Dashboard({ db, auth, userId }) {
     const today = new Date();
     // Функція для визначення, чи є день поточним
     const isTodayFn = useCallback((day, month, year) => {
-        return day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
-    }, [today]);
-
+        // Перенесено створення об'єкта `today` всередину useCallback або використовуємо useMemo
+        const localToday = new Date();
+        return day === localToday.getDate() && month === localToday.getMonth() && year === localToday.getFullYear();
+    }, []); // Залежності відсутні, оскільки localToday створюється всередині
 
     // Функція для виходу з облікового запису
     const handleLogout = async () => {
@@ -526,18 +532,19 @@ function Dashboard({ db, auth, userId }) {
         },
     };
 
-    const barChartOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: { display: false },
-            tooltip: { enabled: true }
-        },
-        scales: {
-            x: { grid: { display: false }, ticks: { font: { size: 10 } } },
-            y: { beginAtZero: true, grid: { display: false }, ticks: { display: false } },
-        },
-    };
+    // barChartOptions та barChartData не використовуються, тому їх можна видалити
+    // const barChartOptions = {
+    //     responsive: true,
+    //     maintainAspectRatio: false,
+    //     plugins: {
+    //         legend: { display: false },
+    //         tooltip: { enabled: true }
+    //     },
+    //     scales: {
+    //         x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+    //         y: { beginAtZero: true, grid: { display: false }, ticks: { display: false } },
+    //     },
+    // };
 
     const pieChartOptions = {
         responsive: true,
@@ -1049,7 +1056,7 @@ function Dashboard({ db, auth, userId }) {
                             <h2 className="text-2xl font-bold text-gray-800 mb-4">Редагувати бюджет</h2>
                             <div className="space-y-4">
                                 <div>
-                                    <label htmlFor="editBudgetName" className="block text-sm font-medium text-gray-700 mb-1">Назва бюджету</label>
+                                    <label htmlFor="editBudgetName" className="block text-sm font-medium text-gray-700 mb-1">Назва</label>
                                     <input
                                         id="editBudgetName"
                                         type="text"
@@ -1060,7 +1067,7 @@ function Dashboard({ db, auth, userId }) {
                                     />
                                 </div>
                                 <div>
-                                    <label htmlFor="editBudgetLimit" className="block text-sm font-medium text-gray-700 mb-1">Ліміт бюджету</label>
+                                    <label htmlFor="editBudgetLimit" className="block text-sm font-medium text-gray-700 mb-1">Ліміт</label>
                                     <input
                                         id="editBudgetLimit"
                                         type="number"
@@ -1112,13 +1119,13 @@ function Dashboard({ db, auth, userId }) {
                     </div>
                 )}
 
-                {/* Модальне вікно підтвердження видалення бюджету */}
-                {showDeleteBudgetConfirm && selectedBudget && (
+                {/* Модальне вікно підтвердження видалення */}
+                {showDeleteBudgetConfirm && (
                     <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4">
                         <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
                             <div className="flex items-center text-red-500 mb-4">
                                 <ExclamationTriangleIcon className="h-6 w-6 mr-2" />
-                                <h3 className="text-lg font-bold text-gray-800">Підтвердити видалення бюджету</h3>
+                                <h3 className="text-lg font-bold text-gray-800">Підтвердити видалення</h3>
                             </div>
                             <p className="text-gray-700 mb-6">
                                 Ви впевнені, що хочете видалити бюджет "<span className="font-semibold">{selectedBudget.name}</span>"?
