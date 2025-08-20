@@ -3,22 +3,22 @@ import {
     PlusCircleIcon,
     PencilIcon,
     TrashIcon,
-    CreditCardIcon, // Наприклад, якщо вона використовується
-    XMarkIcon // Додано XMarkIcon для закриття модального вікна
+    CreditCardIcon,
+    XMarkIcon,
+    HomeIcon, ClipboardDocumentListIcon, BellIcon, UserCircleIcon, ChevronDownIcon, BanknotesIcon, Squares2X2Icon, ListBulletIcon, UsersIcon
 } from '@heroicons/react/24/outline';
 
 // Імпорт функцій Firestore
-// Додано 'query' та 'where'
-import { collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc, query, where } from 'firebase/firestore'; 
+import { collection, onSnapshot, addDoc, doc, deleteDoc, updateDoc, query, where } from 'firebase/firestore';
+// Імпорт функції signOut з Firebase Auth
+import { signOut } from 'firebase/auth';
+import { useNavigate, Link } from 'react-router-dom'; // Додано імпорт Link
 
-// Імпорт компонентів бічної панелі та хедера
-import { HomeIcon, ClipboardDocumentListIcon, BellIcon, UserCircleIcon, ChevronDownIcon, BanknotesIcon, Squares2X2Icon, ListBulletIcon } from '@heroicons/react/24/outline';
-import { Link } from 'react-router-dom'; // Залишаємо Link, бо він потрібен для бічної панелі
 
 // URL для логотипу (посилається на файл у папці public)
 const logoUrl = "/image.png";
 
-function Accounts({ db, auth, userId }) {
+function Accounts({ db, auth, userId, userData }) { // Додано userData
     const [accounts, setAccounts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -33,6 +33,8 @@ function Accounts({ db, auth, userId }) {
 
     // Отримання ID додатку
     const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
+
+    const navigate = useNavigate();
 
     // Завантаження рахунків з Firestore
     useEffect(() => {
@@ -108,116 +110,157 @@ function Accounts({ db, auth, userId }) {
         }
     };
 
-    const handleDeleteAccount = async (accountId) => {
-        if (window.confirm('Ви впевнені, що хочете видалити цей рахунок? Усі пов’язані транзакції також можуть бути видалені.')) {
-            if (!db || !userId) {
-                console.error("Firebase або ID користувача недоступні.");
-                return;
-            }
+    // Змінено: використовуємо модальне вікно для підтвердження замість window.confirm
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [accountToDelete, setAccountToDelete] = useState(null);
 
-            setIsSaving(true); // Використовуємо той самий індикатор
-            try {
-                // Видалення рахунку
-                const accountRef = doc(db, `/artifacts/${appId}/users/${userId}/accounts`, accountId);
-                await deleteDoc(accountRef);
+    const handleDeleteAccountClick = (accountId) => {
+        setAccountToDelete(accountId);
+        setShowDeleteConfirm(true);
+    };
 
-                // Опціонально: Видалення пов'язаних транзакцій.
-                // Це вимагає окремого запиту і може бути повільним для великих наборів даних.
-                // Для масштабованих рішень краще використовувати Cloud Functions.
-                const transactionsQuery = query(collection(db, `/artifacts/${appId}/users/${userId}/transactions`), where('accountId', '==', accountId));
-                const transactionsSnapshot = await onSnapshot(transactionsQuery, (snapshot) => {
-                    snapshot.forEach(async (docRef) => {
-                        await deleteDoc(doc(db, `/artifacts/${appId}/users/${userId}/transactions`, docRef.id));
-                    });
-                    console.log("Пов'язані транзакції видалено (якщо вони були).");
+    const confirmDeleteAccount = async () => {
+        if (!db || !userId || !accountToDelete) {
+            console.error("Firebase, ID користувача або рахунок для видалення недоступні.");
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            // Видалення рахунку
+            const accountRef = doc(db, `/artifacts/${appId}/users/${userId}/accounts`, accountToDelete);
+            await deleteDoc(accountRef);
+
+            // Опціонально: Видалення пов'язаних транзакцій.
+            const transactionsQuery = query(collection(db, `/artifacts/${appId}/users/${userId}/transactions`), where('accountId', '==', accountToDelete));
+            const transactionsSnapshot = await onSnapshot(transactionsQuery, (snapshot) => {
+                snapshot.forEach(async (docRef) => {
+                    await deleteDoc(doc(db, `/artifacts/${appId}/users/${userId}/transactions`, docRef.id));
                 });
-                transactionsSnapshot(); // Відписка від onSnapshot після виконання
+                console.log("Пов'язані транзакції видалено (якщо вони були).");
+            });
+            transactionsSnapshot(); // Відписка від onSnapshot після виконання
 
-                console.log("Рахунок успішно видалено!");
-            } catch (err) {
-                console.error("Помилка видалення рахунку:", err);
-                setError(new Error(`Помилка видалення рахунку: ${err.message || err}`));
-            } finally {
-                setIsSaving(false);
-            }
+            console.log("Рахунок успішно видалено!");
+            setAccountToDelete(null);
+            setShowDeleteConfirm(false);
+        } catch (err) {
+            console.error("Помилка видалення рахунку:", err);
+            setError(new Error(`Помилка видалення рахунку: ${err.message || err}`));
+        } finally {
+            setIsSaving(false);
         }
     };
+
+    const cancelDeleteAccount = () => {
+        setAccountToDelete(null);
+        setShowDeleteConfirm(false);
+    };
+
+
+    const handleLogout = async () => {
+        if (!auth) {
+            console.error("Firebase Auth не доступний.");
+            return;
+        }
+        try {
+            await signOut(auth);
+            console.log("Користувач успішно вийшов з облікового запису.");
+            navigate('/login');
+        } catch (error) {
+            console.error("Помилка виходу з облікового запису:", error);
+            setError(new Error(`Помилка виходу: ${error.message}`));
+        }
+    };
+
+    // Determine the display name (copied from Dashboard.js for consistency)
+    const displayName = (userData && userData.firstName && userData.lastName)
+        ? `${userData.firstName} ${userData.lastName}`
+        : userData?.email || 'Користувач';
+
 
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans']">Завантаження даних...</div>;
     if (error) return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans'] text-red-500">Помилка: {error.message}</div>;
 
     return (
-        <div className="flex min-h-screen bg-gray-100">
+        <div className="flex min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 font-['DM Sans']">
             {/* Бічна панель (скопійована з Dashboard для послідовності) */}
-            <aside className="w-64 bg-white p-6 shadow-xl flex flex-col justify-between rounded-r-xl">
+            <aside className="w-64 bg-white p-6 shadow-xl flex flex-col justify-between rounded-r-3xl border-r border-gray-100">
                 <div>
-                    <div className="flex items-center mb-10">
-                        <img src={logoUrl} alt="Finance Manager Logo" className="w-8 h-8 mr-2 object-contain" />
-                        <span className="text-xl font-bold text-gray-900">Finance Manager</span>
+                    <div className="flex items-center mb-10 px-2">
+                        <img src={logoUrl} alt="APEX FINANCE Logo" className="w-10 h-10 mr-3 object-contain rounded-full shadow-sm" />
+                        <span className="text-2xl font-extrabold text-gray-900">APEX FINANCE</span>
                     </div>
-                    <nav className="space-y-4">
-                        <Link to="/" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
-                            <HomeIcon className="h-5 w-5 mr-3" /> Home
+                    <nav className="space-y-3">
+                        <Link to="/dashboard" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
+                            <HomeIcon className="h-5 w-5 mr-3" /> Dashboard
                         </Link>
-                        <Link to="/budgets" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                        <Link to="/budgets" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
                             <BanknotesIcon className="h-5 w-5 mr-3" /> Budgets
                         </Link>
-                        <Link to="/goals" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                        <Link to="/goals" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
                             <ListBulletIcon className="h-5 w-5 mr-3" /> Goals
                         </Link>
-                        <Link to="/accounts" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                        <Link to="/accounts" className="flex items-center text-blue-700 bg-blue-50 px-4 py-2.5 rounded-xl font-semibold transition-all duration-200 shadow-sm hover:shadow-md">
                             <CreditCardIcon className="h-5 w-5 mr-3" /> Accounts
                         </Link>
-                        <Link to="/transactions" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                        <Link to="/transactions" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
                             <ClipboardDocumentListIcon className="h-5 w-5 mr-3" /> Transactions
                         </Link>
-                        <Link to="/categories" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                        <Link to="/categories" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
                             <Squares2X2Icon className="h-5 w-5 mr-3" /> Categories
+                        </Link>
+                        <Link to="/admin" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
+                            <UsersIcon className="h-5 w-5 mr-3" /> Admin Panel
                         </Link>
                     </nav>
                 </div>
             </aside>
 
             {/* Основний контент сторінки Рахунків */}
-            <div className="flex-1 p-4 sm:p-6 lg:p-8">
+            <div className="flex-1 p-8 max-w-[1400px] mx-auto">
                 {/* Хедер (скопійований з Dashboard для послідовності) */}
-                <header className="bg-white p-4 rounded-xl shadow-md flex justify-end items-center mb-6">
+                <header className="bg-white p-5 rounded-2xl shadow-lg flex justify-between items-center mb-8 border border-gray-100">
+                    <h1 className="text-3xl font-extrabold text-gray-900">Рахунки</h1>
                     <div className="flex items-center space-x-6">
                         {/* Вибір бюджету (залишився статичним) */}
                         <div className="relative">
                             <select
-                                className="appearance-none bg-gray-100 text-gray-800 font-semibold py-2 px-4 rounded-lg pr-8 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-300"
+                                className="appearance-none bg-gray-100 text-gray-800 font-semibold py-2.5 px-5 rounded-xl pr-10 cursor-pointer text-base focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all duration-200 hover:bg-gray-200"
                             >
                                 <option value="Budget 1">Budget 1</option>
                                 <option value="Budget 2">Budget 2</option>
                             </select>
-                            <ChevronDownIcon className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
+                            <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-600 pointer-events-none" />
                         </div>
-                        <BellIcon className="h-6 w-6 text-gray-500 cursor-pointer hover:text-blue-600" />
-                        <div className="flex items-center space-x-2">
-                            <UserCircleIcon className="h-8 w-8 text-blue-500" />
-                            <div className="text-sm">
-                                <p className="font-semibold text-gray-800">{auth.currentUser?.email || 'Користувач'}</p>
-                                <p className="text-gray-500">{userId}</p>
+                        <BellIcon className="h-7 w-7 text-gray-500 cursor-pointer hover:text-blue-600 transition-colors duration-200" />
+                        <div className="flex items-center space-x-3">
+                            <UserCircleIcon className="h-10 w-10 text-blue-500 rounded-full bg-blue-100 p-1" />
+                            <div className="text-base">
+                                <p className="font-semibold text-gray-800">{displayName}</p>
                             </div>
+                            <button
+                                onClick={handleLogout}
+                                className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2.5 px-5 rounded-xl transition-colors duration-200 shadow-sm hover:shadow-md text-base"
+                            >
+                                Вийти
+                            </button>
                         </div>
                     </div>
                 </header>
 
-                <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 mb-6">Рахунки</h1>
-
                 <div className="flex justify-end mb-6">
                     <button
                         onClick={() => openModal()}
-                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center shadow-md transition"
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-lg flex items-center shadow-md transition-all duration-200 text-base"
                     >
                         <PlusCircleIcon className="h-5 w-5 mr-2" /> Додати рахунок
                     </button>
                 </div>
 
                 {/* Account List */}
-                <div className="bg-white p-6 rounded-lg shadow-md">
-                    <h2 className="text-2xl font-semibold text-gray-700 mb-4">Ваші рахунки</h2>
+                <div className="bg-white p-7 rounded-2xl shadow-lg border border-gray-100">
+                    <h2 className="text-2xl font-semibold text-gray-700 mb-5">Ваші рахунки</h2>
                     <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
@@ -230,18 +273,18 @@ function Accounts({ db, auth, userId }) {
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {accounts.length === 0 ? (
                                     <tr>
-                                        <td colSpan="3" className="px-6 py-4 text-center text-gray-500">Рахунків не знайдено.</td>
+                                        <td colSpan="3" className="px-6 py-4 text-center text-gray-500 text-base">Рахунків не знайдено.</td>
                                     </tr>
                                 ) : (
                                     accounts.map((acc) => (
                                         <tr key={acc.id}>
-                                            <td className="px-6 py-4 text-sm font-medium text-gray-900">{acc.name}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-900">{acc.balance.toFixed(2)} ₴</td>
+                                            <td className="px-6 py-4 text-base font-medium text-gray-900">{acc.name}</td>
+                                            <td className="px-6 py-4 text-base text-gray-900">{acc.balance.toFixed(2)} ₴</td>
                                             <td className="px-6 py-4 text-right space-x-2">
-                                                <button onClick={() => openModal(acc)} className="text-blue-500 hover:text-blue-700">
+                                                <button onClick={() => openModal(acc)} className="text-blue-600 hover:text-blue-800 p-2 rounded-md hover:bg-blue-50 transition-colors duration-200">
                                                     <PencilIcon className="h-5 w-5 inline" />
                                                 </button>
-                                                <button onClick={() => handleDeleteAccount(acc.id)} className="text-red-500 hover:text-red-700">
+                                                <button onClick={() => handleDeleteAccountClick(acc.id)} className="text-red-600 hover:text-red-800 p-2 rounded-md hover:bg-red-50 transition-colors duration-200">
                                                     <TrashIcon className="h-5 w-5 inline" />
                                                 </button>
                                             </td>
@@ -255,35 +298,75 @@ function Accounts({ db, auth, userId }) {
 
                 {/* Modal для додавання/редагування рахунку */}
                 {isModalOpen && (
-                    <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
-                        <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-lg relative">
+                    <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50 p-4">
+                        <div className="bg-white p-7 rounded-2xl shadow-xl w-full max-w-lg relative">
                             <button
                                 onClick={closeModal}
-                                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+                                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition-colors"
                             >
-                                <XMarkIcon className="h-6 w-6" />
+                                <XMarkIcon className="h-7 w-7" />
                             </button>
-                            <h2 className="text-xl font-bold mb-4">{currentAccount ? 'Редагувати' : 'Новий'} рахунок</h2>
+                            <h2 className="text-2xl font-bold text-gray-800 mb-5">{currentAccount ? 'Редагувати' : 'Новий'} рахунок</h2>
                             <form onSubmit={handleSaveAccount} className="space-y-4">
                                 <label className="block">
-                                    <span className="text-gray-700">Назва рахунку:</span>
-                                    <input type="text" value={accountName} onChange={(e) => setAccountName(e.target.value)} required className="mt-1 block w-full border p-2 rounded" />
+                                    <span className="text-gray-700 font-medium text-base">Назва рахунку:</span>
+                                    <input type="text" value={accountName} onChange={(e) => setAccountName(e.target.value)} required className="mt-1 block w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" />
                                 </label>
                                 <label className="block">
-                                    <span className="text-gray-700">Початковий баланс:</span>
-                                    <input type="number" step="0.01" value={accountBalance} onChange={(e) => setAccountBalance(e.target.value)} required className="mt-1 block w-full border p-2 rounded" />
+                                    <span className="text-gray-700 font-medium text-base">Початковий баланс:</span>
+                                    <input type="number" step="0.01" value={accountBalance} onChange={(e) => setAccountBalance(e.target.value)} required className="mt-1 block w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" />
                                 </label>
-                                <div className="flex justify-end space-x-2">
+                                <div className="flex justify-end space-x-3 mt-6">
                                     <button
                                         type="submit"
-                                        className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
+                                        className="bg-blue-600 text-white px-6 py-2.5 rounded-lg disabled:opacity-50 hover:bg-blue-700 transition-colors duration-200 text-base font-semibold"
                                         disabled={isSaving}
                                     >
                                         {isSaving ? 'Зберігаємо...' : 'Зберегти'}
                                     </button>
-                                    <button type="button" onClick={closeModal} className="bg-gray-400 text-white px-4 py-2 rounded">Скасувати</button>
+                                    <button
+                                        type="button"
+                                        onClick={closeModal}
+                                        className="bg-gray-200 text-gray-800 px-6 py-2.5 rounded-lg hover:bg-gray-300 transition-colors duration-200 text-base font-semibold"
+                                    >
+                                        Скасувати
+                                    </button>
                                 </div>
                             </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Delete Confirmation Modal */}
+                {showDeleteConfirm && (
+                    <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50 p-4">
+                        <div className="bg-white p-7 rounded-2xl shadow-xl w-full max-w-lg relative">
+                            <button
+                                onClick={cancelDeleteAccount}
+                                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition-colors"
+                            >
+                                <XMarkIcon className="h-7 w-7" />
+                            </button>
+                            <h2 className="text-2xl font-bold text-gray-800 mb-5">Підтвердити видалення</h2>
+                            <p className="text-gray-700 text-base mb-6">
+                                Ви впевнені, що хочете видалити цей рахунок? Усі пов’язані транзакції також будуть видалені. Цю дію не можна скасувати.
+                            </p>
+                            <div className="flex justify-end space-x-3 mt-6">
+                                <button
+                                    onClick={confirmDeleteAccount}
+                                    className="bg-red-600 text-white px-6 py-2.5 rounded-lg disabled:opacity-50 hover:bg-red-700 transition-colors duration-200 text-base font-semibold"
+                                    disabled={isSaving}
+                                >
+                                    {isSaving ? 'Видаляємо...' : 'Видалити'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={cancelDeleteAccount}
+                                    className="bg-gray-200 text-gray-800 px-6 py-2.5 rounded-lg hover:bg-gray-300 transition-colors duration-200 text-base font-semibold"
+                                >
+                                    Скасувати
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
