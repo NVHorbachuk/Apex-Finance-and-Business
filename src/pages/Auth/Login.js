@@ -22,7 +22,7 @@ function Login({ auth, db }) {
         setLoading(true);
         try {
             await signInWithEmailAndPassword(auth, email, password);
-            navigate('/'); // Перенаправлення на головну сторінку після успішного входу
+            navigate('/dashboard'); // Змінено на /dashboard
         } catch (err) {
             console.error("Помилка входу:", err);
             setError("Помилка входу: " + err.message);
@@ -38,7 +38,7 @@ function Login({ auth, db }) {
         try {
             const provider = new GoogleAuthProvider();
             await signInWithPopup(auth, provider);
-            navigate('/'); // Перенаправлення на головну сторінку
+            navigate('/dashboard'); // Змінено на /dashboard
         } catch (err) {
             console.error("Помилка входу з Google:", err);
             setError("Помилка входу з Google: " + err.message);
@@ -54,7 +54,7 @@ function Login({ auth, db }) {
         try {
             const provider = new GithubAuthProvider();
             await signInWithPopup(auth, provider);
-            navigate('/'); // Перенаправлення на головну сторінку
+            navigate('/dashboard'); // Змінено на /dashboard
         } catch (err) {
             console.error("Помилка входу з GitHub:", err);
             setError("Помилка входу з GitHub: " + err.message);
@@ -70,7 +70,7 @@ function Login({ auth, db }) {
         try {
             const provider = new FacebookAuthProvider();
             await signInWithPopup(auth, provider);
-            navigate('/'); // Перенаправлення на головну сторінку
+            navigate('/dashboard'); // Змінено на /dashboard
         } catch (err) {
             console.error("Помилка входу з Facebook:", err);
             setError("Помилка входу з Facebook: " + err.message);

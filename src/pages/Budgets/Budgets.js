@@ -1,15 +1,30 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-    BanknotesIcon, PlusIcon, PencilIcon, TrashIcon, ExclamationTriangleIcon, HomeIcon
+    BanknotesIcon, PlusIcon, PencilIcon, TrashIcon, ExclamationTriangleIcon,
+    HomeIcon, CreditCardIcon, Squares2X2Icon, ListBulletIcon, UserCircleIcon,
+    ChevronDownIcon, FunnelIcon, CalendarDaysIcon, XMarkIcon, ClipboardDocumentListIcon
 } from "@heroicons/react/24/outline";
 import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { signOut } from 'firebase/auth';
 
-const logoUrl = "/image.png"; // Defined here for Budgets.js
+const logoUrl = "/image.png";
 
-function Budgets({ db, auth, userId }) {
+// Available currencies for selection (копіюємо з Dashboard.js для послідовності)
+const currencies = [
+    { code: 'USD', name: 'United States Dollar', symbol: '$' },
+    { code: 'EUR', name: 'Euro', symbol: '€' },
+    { code: 'UAH', name: 'Українська гривня', symbol: '₴' },
+    { code: 'GBP', name: 'British Pound', symbol: '£' },
+    { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
+    { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
+    { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
+];
+
+
+function Budgets({ db, auth, userId, userData }) {
     const [budgets, setBudgets] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(true); // Виправлено: використовувати useState для ініціалізації
     const [error, setError] = useState(null);
 
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -17,21 +32,26 @@ function Budgets({ db, auth, userId }) {
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     const [selectedBudget, setSelectedBudget] = useState(null);
-    const [newBudget, setNewBudget] = useState({ name: "", limit: 0, spent: 0, category: "" });
-    const [editBudget, setEditBudget] = useState({ name: "", limit: 0, spent: 0, category: "" });
+    const [newBudget, setNewBudget] = useState({ name: "", limit: 0, spent: 0, category: "All categories", currency: "UAH", recurrence: "Monthly", startDate: new Date().toISOString().substring(0, 10) });
+    const [editBudget, setEditBudget] = useState({ name: "", limit: 0, spent: 0, category: "", currency: "", recurrence: "", startDate: "" });
+    const [amountToCredit, setAmountToCredit] = useState('');
+
+    const [availableCategories, setAvailableCategories] = useState(['All categories']);
 
     const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
     const navigate = useNavigate();
 
-    // Fetch budgets from Firestore
+    // Fetch budgets and transactions from Firestore
     useEffect(() => {
         if (!db || !userId) {
             setLoading(false);
             return;
         }
 
+        const unsubscribes = [];
+
         const budgetsCollectionRef = collection(db, `/artifacts/${appId}/users/${userId}/budgets`);
-        const unsubscribe = onSnapshot(budgetsCollectionRef, (snapshot) => {
+        unsubscribes.push(onSnapshot(budgetsCollectionRef, (snapshot) => {
             const fetchedBudgets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setBudgets(fetchedBudgets);
             setLoading(false);
@@ -39,15 +59,28 @@ function Budgets({ db, auth, userId }) {
             console.error("Budgets.js: Помилка отримання бюджетів:", err);
             setError(err);
             setLoading(false);
-        });
+        }));
 
-        return () => unsubscribe();
+        const transactionsCollectionRef = collection(db, `/artifacts/${appId}/users/${userId}/transactions`);
+        unsubscribes.push(onSnapshot(transactionsCollectionRef, (snapshot) => {
+            const fetchedTransactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const uniqueCategories = new Set(['All categories']);
+            fetchedTransactions.forEach(t => {
+                if (t.category) uniqueCategories.add(t.category);
+            });
+            setAvailableCategories(Array.from(uniqueCategories));
+        }, (err) => {
+            console.error("Budgets.js: Помилка отримання транзакцій для категорій:", err);
+            setError(err);
+        }));
+
+        return () => unsubscribes.forEach(unsub => unsub());
     }, [db, userId, appId]);
 
     // Handle Create Budget
     const handleCreate = async () => {
-        if (!db || !userId || !newBudget.name.trim() || isNaN(parseFloat(newBudget.limit))) {
-            setError(new Error("Будь ласка, заповніть назву бюджету та ліміт."));
+        if (!db || !userId || !newBudget.name.trim() || isNaN(parseFloat(newBudget.limit)) || !newBudget.currency.trim() || !newBudget.recurrence.trim() || !newBudget.startDate.trim()) {
+            setError(new Error("Будь ласка, заповніть усі поля для створення бюджету."));
             return;
         }
 
@@ -57,13 +90,16 @@ function Budgets({ db, auth, userId }) {
                 name: newBudget.name.trim(),
                 limit: parseFloat(newBudget.limit),
                 spent: 0, // Initial spent is 0
-                category: newBudget.category.trim() || 'Без категорії', // Default category if empty
+                category: newBudget.category.trim(),
+                currency: newBudget.currency.trim(),
+                recurrence: newBudget.recurrence.trim(),
+                startDate: newBudget.startDate.trim(),
                 createdAt: new Date().toISOString(),
                 userId: userId
             });
-            setNewBudget({ name: "", limit: 0, spent: 0, category: "" });
+            setNewBudget({ name: "", limit: 0, spent: 0, category: "All categories", currency: "UAH", recurrence: "Monthly", startDate: new Date().toISOString().substring(0, 10) });
             setShowCreateModal(false);
-            setError(null); // Clear any previous errors
+            setError(null);
         } catch (err) {
             console.error("Помилка додавання бюджету:", err);
             setError(new Error(`Помилка додавання бюджету: ${err.message}`));
@@ -72,7 +108,18 @@ function Budgets({ db, auth, userId }) {
 
     // Handle Edit Budget
     const handleEdit = async () => {
-        if (!db || !userId || !selectedBudget || !editBudget.name.trim() || isNaN(parseFloat(editBudget.limit)) || isNaN(parseFloat(editBudget.spent))) {
+        // Забезпечуємо, що всі поля існують перед викликом .trim() або parseFloat()
+        const budgetToValidate = {
+            name: editBudget.name || '',
+            limit: parseFloat(editBudget.limit) || 0,
+            spent: parseFloat(editBudget.spent) || 0,
+            category: editBudget.category || '',
+            currency: editBudget.currency || '',
+            recurrence: editBudget.recurrence || '',
+            startDate: editBudget.startDate || '',
+        };
+
+        if (!db || !userId || !selectedBudget || !budgetToValidate.name.trim() || isNaN(budgetToValidate.limit) || isNaN(budgetToValidate.spent) || !budgetToValidate.currency.trim() || !budgetToValidate.recurrence.trim() || !budgetToValidate.startDate.trim()) {
             setError(new Error("Будь ласка, заповніть усі поля для редагування бюджету."));
             return;
         }
@@ -80,14 +127,17 @@ function Budgets({ db, auth, userId }) {
         try {
             const budgetDocRef = doc(db, `/artifacts/${appId}/users/${userId}/budgets`, selectedBudget.id);
             await updateDoc(budgetDocRef, {
-                name: editBudget.name.trim(),
-                limit: parseFloat(editBudget.limit),
-                spent: parseFloat(editBudget.spent),
-                category: editBudget.category.trim(),
+                name: budgetToValidate.name.trim(),
+                limit: budgetToValidate.limit,
+                spent: budgetToValidate.spent,
+                category: budgetToValidate.category.trim(),
+                currency: budgetToValidate.currency.trim(),
+                recurrence: budgetToValidate.recurrence.trim(),
+                startDate: budgetToValidate.startDate.trim(),
             });
             setSelectedBudget(null);
             setShowEditModal(false);
-            setError(null); // Clear any previous errors
+            setError(null);
         } catch (err) {
             console.error("Помилка оновлення бюджету:", err);
             setError(new Error(`Помилка оновлення бюджету: ${err.message}`));
@@ -104,7 +154,7 @@ function Budgets({ db, auth, userId }) {
         if (selectedBudget && db && userId) {
             try {
                 await deleteDoc(doc(db, `/artifacts/${appId}/users/${userId}/budgets`, selectedBudget.id));
-                setError(null); // Clear any previous errors
+                setError(null);
             } catch (err) {
                 console.error("Помилка видалення бюджету:", err);
                 setError(new Error(`Помилка видалення бюджету: ${err.message}`));
@@ -120,9 +170,42 @@ function Budgets({ db, auth, userId }) {
         setSelectedBudget(null);
     };
 
+    // Функція для додавання суми до вже зарахованих коштів
+    const handleCreditAmount = () => {
+        const amount = parseFloat(amountToCredit);
+        if (!isNaN(amount) && amount > 0) {
+            setEditBudget(prev => ({
+                ...prev,
+                spent: prev.spent + amount
+            }));
+            setAmountToCredit(''); // Очистити поле вводу після додавання
+        }
+    };
+
+    // Функція для виходу з облікового запису
+    const handleLogout = async () => {
+        if (!auth) {
+            console.error("Firebase Auth не доступний.");
+            return;
+        }
+        try {
+            await signOut(auth);
+            console.log("Користувач успішно вийшов з облікового запису.");
+            navigate('/login');
+        } catch (error) {
+            console.error("Помилка виходу з облікового запису:", error);
+            setError(new Error(`Помилка виходу: ${error.message}`));
+        }
+    };
+
+    // Determine the display name
+    const displayName = (userData && userData.firstName && userData.lastName)
+        ? `${userData.firstName} ${userData.lastName}`
+        : userData?.email || 'Користувач';
+
+
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans']">Завантаження бюджетів...</div>;
     if (error) return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans'] text-red-500">Помилка: {error.message}</div>;
-
 
     return (
         <div className="flex min-h-screen bg-[#F7FAFC] font-['DM Sans']">
@@ -134,13 +217,24 @@ function Budgets({ db, auth, userId }) {
                         <span className="text-xl font-bold text-gray-900">Finance Manager</span>
                     </div>
                     <nav className="space-y-4">
-                        <Link to="/" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
-                            <HomeIcon className="h-5 w-5 mr-3" /> Головна
+                        <Link to="/dashboard" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                            <HomeIcon className="h-5 w-5 mr-3" /> Dashboard
                         </Link>
                         <Link to="/budgets" className="flex items-center text-blue-600 bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
                             <BanknotesIcon className="h-5 w-5 mr-3" /> Бюджети
                         </Link>
-                        {/* Add other navigation links here as needed, similar to Dashboard's sidebar */}
+                        <Link to="/goals" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                            <ListBulletIcon className="h-5 w-5 mr-3" /> Goals
+                        </Link>
+                        <Link to="/accounts" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                            <CreditCardIcon className="h-5 w-5 mr-3" /> Accounts
+                        </Link>
+                        <Link to="/transactions" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                            <ClipboardDocumentListIcon className="h-5 w-5 mr-3" /> Transactions
+                        </Link>
+                        <Link to="/categories" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                            <Squares2X2Icon className="h-5 w-5 mr-3" /> Categories
+                        </Link>
                     </nav>
                 </div>
             </aside>
@@ -149,16 +243,42 @@ function Budgets({ db, auth, userId }) {
             <div className="flex-1 flex flex-col p-6 max-w-[1184px] mx-auto">
                 <header className="bg-white p-4 rounded-xl shadow-md flex justify-between items-center mb-6">
                     <h1 className="text-3xl font-bold text-gray-800">Керування бюджетами</h1>
-                    <button
-                        onClick={() => setShowCreateModal(true)}
-                        className="bg-[#2C5282] text-white px-4 py-2 rounded-lg shadow hover:bg-[#4299E1] transition-colors duration-200 flex items-center"
-                    >
-                        <PlusIcon className="h-5 w-5 mr-2" /> Створити новий бюджет
-                    </button>
+                    <div className="flex items-center space-x-6">
+                        {/* Вибір бюджету (залишився статичним) */}
+                        <div className="relative">
+                            <select
+                                className="appearance-none bg-gray-100 text-gray-800 font-semibold py-2 px-4 rounded-lg pr-8 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            >
+                                <option value="Budget 1">Budget 1</option>
+                                <option value="Budget 2">Budget 2</option>
+                            </select>
+                            <ChevronDownIcon className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <UserCircleIcon className="h-8 w-8 text-blue-500" />
+                            <div className="text-sm">
+                                <p className="font-semibold text-gray-800">{displayName}</p>
+                            </div>
+                            <button
+                                onClick={handleLogout}
+                                className="ml-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
+                            >
+                                Вийти
+                            </button>
+                        </div>
+                    </div>
                 </header>
 
                 <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
                     <h2 className="text-xl font-semibold text-gray-700 mb-4">Список бюджетів</h2>
+                    <div className="flex justify-end mb-6">
+                        <button
+                            onClick={() => setShowCreateModal(true)}
+                            className="bg-[#2C5282] text-white px-4 py-2 rounded-lg shadow hover:bg-[#4299E1] transition-colors duration-200 flex items-center"
+                        >
+                            <PlusIcon className="h-5 w-5 mr-2" /> Створити новий бюджет
+                        </button>
+                    </div>
                     {budgets.length === 0 ? (
                         <p className="text-gray-500">Немає доданих бюджетів.</p>
                     ) : (
@@ -168,8 +288,11 @@ function Budgets({ db, auth, userId }) {
                                     <tr>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Назва</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Категорія</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Валюта</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Періодичність</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Дата початку</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Ліміт</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Витрачено</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Зараховано</th>
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Прогрес</th>
                                         <th className="px-6 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Дії</th>
                                     </tr>
@@ -177,13 +300,16 @@ function Budgets({ db, auth, userId }) {
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {budgets.map(budget => {
                                         const progress = (budget.spent / budget.limit) * 100;
-                                        const progressColor = progress > 100 ? 'bg-red-500' : 'bg-green-500'; // Використовуємо кольори Tailwind
+                                        const progressColor = progress > 100 ? 'bg-red-500' : 'bg-green-500';
                                         return (
                                             <tr key={budget.id} className="hover:bg-[#EBF8FF] transition-colors duration-150">
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{budget.name}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{budget.category || 'Без категорії'}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${budget.limit.toFixed(2)}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${budget.spent.toFixed(2)}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{budget.currency}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{budget.recurrence}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{budget.startDate}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{currencies.find(c => c.code === budget.currency)?.symbol}{budget.limit.toFixed(2)}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{currencies.find(c => c.code === budget.currency)?.symbol}{budget.spent.toFixed(2)}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                                                     <div className="w-24 bg-gray-200 rounded-full h-2.5">
                                                         <div className={`${progressColor} h-2.5 rounded-full`} style={{ width: `${Math.min(100, progress)}%` }}></div>
@@ -194,7 +320,18 @@ function Budgets({ db, auth, userId }) {
                                                     <button
                                                         onClick={() => {
                                                             setSelectedBudget(budget);
-                                                            setEditBudget({ ...budget });
+                                                            // Виправлено: забезпечуємо, що всі поля ініціалізовані рядками, якщо вони відсутні
+                                                            setEditBudget({
+                                                                ...budget,
+                                                                name: budget.name || '',
+                                                                limit: budget.limit || 0,
+                                                                spent: budget.spent || 0,
+                                                                category: budget.category || 'All categories',
+                                                                currency: budget.currency || 'UAH',
+                                                                recurrence: budget.recurrence || 'Monthly',
+                                                                startDate: budget.startDate || new Date().toISOString().substring(0, 10)
+                                                            });
+                                                            setAmountToCredit('');
                                                             setShowEditModal(true);
                                                         }}
                                                         className="text-indigo-600 hover:text-indigo-900 transition-colors duration-200 p-2 rounded-md hover:bg-indigo-50"
@@ -221,59 +358,133 @@ function Budgets({ db, auth, userId }) {
 
                 {/* Create Budget Modal */}
                 {showCreateModal && (
-                    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
-                            <h2 className="text-2xl font-bold text-gray-800 mb-4">Створити бюджет</h2>
-                            <div className="space-y-4">
-                                <div>
-                                    <label htmlFor="newBudgetName" className="block text-sm font-medium text-gray-700 mb-1">Назва</label>
-                                    <input
-                                        id="newBudgetName"
-                                        type="text"
-                                        placeholder="Напр. 'Продукти'"
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4299E1]"
-                                        value={newBudget.name}
-                                        onChange={e => setNewBudget({ ...newBudget, name: e.target.value })}
-                                        required
-                                    />
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white p-7 rounded-2xl shadow-xl max-w-md w-full relative">
+                            <button
+                                onClick={() => setShowCreateModal(false)}
+                                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition-colors"
+                            >
+                                <XMarkIcon className="h-7 w-7" />
+                            </button>
+                            <h2 className="text-2xl font-bold text-gray-800 mb-5 text-center">Створити новий бюджет</h2>
+
+                            {/* General Info */}
+                            <div className="mb-6">
+                                <h3 className="text-lg font-semibold text-gray-700 mb-3 flex items-center">
+                                    <BanknotesIcon className="h-6 w-6 mr-2 text-green-500" /> Загальна інформація
+                                </h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label htmlFor="newBudgetName" className="block text-sm font-medium text-gray-700 mb-1">Назва бюджету</label>
+                                        <input
+                                            id="newBudgetName"
+                                            type="text"
+                                            placeholder="Напр. 'Продукти'"
+                                            value={newBudget.name}
+                                            onChange={e => setNewBudget({ ...newBudget, name: e.target.value })}
+                                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="newBudgetAmount" className="block text-sm font-medium text-gray-700 mb-1">Сума</label>
+                                        <input
+                                            id="newBudgetAmount"
+                                            type="number"
+                                            placeholder="Напр. 500.00"
+                                            value={newBudget.limit === 0 ? '' : newBudget.limit}
+                                            onChange={e => setNewBudget({ ...newBudget, limit: parseFloat(e.target.value) || 0 })}
+                                            step="0.01"
+                                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="col-span-2">
+                                        <label htmlFor="newBudgetCurrency" className="block text-sm font-medium text-gray-700 mb-1">Валюта</label>
+                                        <select
+                                            id="newBudgetCurrency"
+                                            value={newBudget.currency}
+                                            onChange={e => setNewBudget({ ...newBudget, currency: e.target.value })}
+                                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            required
+                                        >
+                                            {currencies.map(c => (
+                                                <option key={c.code} value={c.code}>{c.name} ({c.symbol})</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
+                            </div>
+
+                            {/* Budget Filter */}
+                            <div className="mb-6">
+                                <h3 className="text-lg font-semibold text-gray-700 mb-3 flex items-center">
+                                    <FunnelIcon className="h-6 w-6 mr-2 text-orange-500" /> Фільтр бюджету
+                                </h3>
                                 <div>
-                                    <label htmlFor="newBudgetLimit" className="block text-sm font-medium text-gray-700 mb-1">Ліміт</label>
-                                    <input
-                                        id="newBudgetLimit"
-                                        type="number"
-                                        placeholder="Напр. 500.00"
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4299E1]"
-                                        value={newBudget.limit === 0 ? '' : newBudget.limit}
-                                        onChange={e => setNewBudget({ ...newBudget, limit: parseFloat(e.target.value) || 0 })}
-                                        step="0.01"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label htmlFor="newBudgetCategory" className="block text-sm font-medium text-gray-700 mb-1">Категорія</label>
-                                    <input
+                                    <label htmlFor="newBudgetCategory" className="block text-sm font-medium text-gray-700 mb-1">Бюджет для</label>
+                                    <select
                                         id="newBudgetCategory"
-                                        type="text"
-                                        placeholder="Напр. 'Їжа', 'Транспорт'"
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4299E1]"
                                         value={newBudget.category}
                                         onChange={e => setNewBudget({ ...newBudget, category: e.target.value })}
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        {availableCategories.map(cat => (
+                                            <option key={cat} value={cat}>{cat}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Budget Period */}
+                            <div className="mb-6">
+                                <h3 className="text-lg font-semibold text-gray-700 mb-3 flex items-center">
+                                    <CalendarDaysIcon className="h-6 w-6 mr-2 text-purple-500" /> Період бюджету
+                                </h3>
+                                <div className="flex flex-wrap gap-2 mb-4">
+                                    {['Once', 'Daily', 'Weekly', 'Biweekly', 'Monthly', 'Yearly'].map(period => (
+                                        <button
+                                            key={period}
+                                            type="button"
+                                            onClick={() => setNewBudget({ ...newBudget, recurrence: period })}
+                                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200
+                                                ${newBudget.recurrence === period ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}
+                                            `}
+                                        >
+                                            {period === 'Once' ? 'Одноразово' :
+                                             period === 'Daily' ? 'Щоденно' :
+                                             period === 'Weekly' ? 'Щотижня' :
+                                             period === 'Biweekly' ? 'Раз на два тижні' :
+                                             period === 'Monthly' ? 'Щомісяця' :
+                                             'Щорічно'}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div>
+                                    <label htmlFor="newBudgetStartDate" className="block text-sm font-medium text-gray-700 mb-1">Дата початку</label>
+                                    <input
+                                        id="newBudgetStartDate"
+                                        type="date"
+                                        value={newBudget.startDate}
+                                        onChange={e => setNewBudget({ ...newBudget, startDate: e.target.value })}
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
                                     />
                                 </div>
                             </div>
-                            <div className="flex justify-end gap-2 mt-6">
+
+                            <div className="flex justify-end space-x-4 mt-6">
                                 <button
                                     onClick={() => setShowCreateModal(false)}
-                                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors duration-200"
+                                    className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors duration-200"
                                 >
                                     Скасувати
                                 </button>
                                 <button
                                     onClick={handleCreate}
-                                    className="bg-[#2C5282] text-white px-4 py-2 rounded-lg hover:bg-[#4299E1] transition-colors duration-200"
+                                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
                                 >
-                                    Створити
+                                    Створити бюджет
                                 </button>
                             </div>
                         </div>
@@ -282,18 +493,24 @@ function Budgets({ db, auth, userId }) {
 
                 {/* Edit Budget Modal */}
                 {showEditModal && selectedBudget && (
-                    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
-                            <h2 className="text-2xl font-bold text-gray-800 mb-4">Редагувати бюджет</h2>
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white p-7 rounded-2xl shadow-xl max-w-md w-full relative">
+                            <button
+                                onClick={() => { setShowEditModal(false); setSelectedBudget(null); }}
+                                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition-colors"
+                            >
+                                <XMarkIcon className="h-7 w-7" />
+                            </button>
+                            <h2 className="text-2xl font-bold text-gray-800 mb-5">Редагувати бюджет</h2>
                             <div className="space-y-4">
                                 <div>
                                     <label htmlFor="editBudgetName" className="block text-sm font-medium text-gray-700 mb-1">Назва</label>
                                     <input
                                         id="editBudgetName"
                                         type="text"
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4299E1]"
                                         value={editBudget.name}
-                                        onChange={e => setSelectedBudget({ ...selectedBudget, name: e.target.value }) || setEditBudget({ ...editBudget, name: e.target.value })}
+                                        onChange={e => setEditBudget({ ...editBudget, name: e.target.value })}
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         required
                                     />
                                 </div>
@@ -302,46 +519,120 @@ function Budgets({ db, auth, userId }) {
                                     <input
                                         id="editBudgetLimit"
                                         type="number"
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4299E1]"
                                         value={editBudget.limit}
-                                        onChange={e => setSelectedBudget({ ...selectedBudget, limit: parseFloat(e.target.value) || 0 }) || setEditBudget({ ...editBudget, limit: parseFloat(e.target.value) || 0 })}
+                                        onChange={e => setEditBudget({ ...editBudget, limit: parseFloat(e.target.value) || 0 })}
                                         step="0.01"
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         required
                                     />
                                 </div>
+                                {/* Оновлене поле "Зараховано" */}
                                 <div>
-                                    <label htmlFor="editBudgetSpent" className="block text-sm font-medium text-gray-700 mb-1">Витрачено</label>
+                                    <label htmlFor="editBudgetSpent" className="block text-sm font-medium text-gray-700 mb-1">Зараховано</label>
                                     <input
                                         id="editBudgetSpent"
                                         type="number"
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4299E1]"
                                         value={editBudget.spent}
-                                        onChange={e => setSelectedBudget({ ...selectedBudget, spent: parseFloat(e.target.value) || 0 }) || setEditBudget({ ...editBudget, spent: parseFloat(e.target.value) || 0 })}
+                                        onChange={e => setEditBudget({ ...editBudget, spent: parseFloat(e.target.value) || 0 })}
                                         step="0.01"
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                         required
                                     />
                                 </div>
+                                {/* Нове поле для додавання суми до зарахування */}
+                                <div className="flex items-end space-x-2">
+                                    <div className="flex-1">
+                                        <label htmlFor="amountToCredit" className="block text-sm font-medium text-gray-700 mb-1">Додати суму для зарахування</label>
+                                        <input
+                                            id="amountToCredit"
+                                            type="number"
+                                            placeholder="0.00"
+                                            value={amountToCredit}
+                                            onChange={e => setAmountToCredit(e.target.value)}
+                                            step="0.01"
+                                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleCreditAmount}
+                                        className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
+                                    >
+                                        Зарахувати
+                                    </button>
+                                </div>
+                                {/* Кінець нового поля */}
                                 <div>
                                     <label htmlFor="editBudgetCategory" className="block text-sm font-medium text-gray-700 mb-1">Категорія</label>
-                                    <input
+                                    <select
                                         id="editBudgetCategory"
-                                        type="text"
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4299E1]"
                                         value={editBudget.category}
-                                        onChange={e => setSelectedBudget({ ...selectedBudget, category: e.target.value }) || setEditBudget({ ...editBudget, category: e.target.value })}
+                                        onChange={e => setEditBudget({ ...editBudget, category: e.target.value })}
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        {availableCategories.map(cat => (
+                                            <option key={cat} value={cat}>{cat}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label htmlFor="editBudgetCurrency" className="block text-sm font-medium text-gray-700 mb-1">Валюта</label>
+                                    <select
+                                        id="editBudgetCurrency"
+                                        value={editBudget.currency}
+                                        onChange={e => setEditBudget({ ...editBudget, currency: e.target.value })}
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    >
+                                        {currencies.map(c => (
+                                            <option key={c.code} value={c.code}>{c.name} ({c.symbol})</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label htmlFor="editBudgetRecurrence" className="block text-sm font-medium text-gray-700 mb-1">Періодичність</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {['Once', 'Daily', 'Weekly', 'Biweekly', 'Monthly', 'Yearly'].map(period => (
+                                            <button
+                                                key={period}
+                                                type="button"
+                                                onClick={() => setEditBudget({ ...editBudget, recurrence: period })}
+                                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200
+                                                    ${editBudget.recurrence === period ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}
+                                                `}
+                                            >
+                                                {period === 'Once' ? 'Одноразово' :
+                                                 period === 'Daily' ? 'Щоденно' :
+                                                 period === 'Weekly' ? 'Щотижня' :
+                                                 period === 'Biweekly' ? 'Раз на два тижні' :
+                                                 period === 'Monthly' ? 'Щомісяця' :
+                                                 'Щорічно'}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label htmlFor="editBudgetStartDate" className="block text-sm font-medium text-gray-700 mb-1">Дата початку</label>
+                                    <input
+                                        id="editBudgetStartDate"
+                                        type="date"
+                                        value={editBudget.startDate}
+                                        onChange={e => setEditBudget({ ...editBudget, startDate: e.target.value })}
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
                                     />
                                 </div>
                             </div>
                             <div className="flex justify-end gap-2 mt-6">
                                 <button
                                     onClick={() => { setShowEditModal(false); setSelectedBudget(null); }}
-                                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors duration-200"
+                                    className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors duration-200"
                                 >
                                     Скасувати
                                 </button>
                                 <button
                                     onClick={handleEdit}
-                                    className="bg-[#2C5282] text-white px-4 py-2 rounded-lg hover:bg-[#4299E1] transition-colors duration-200"
+                                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
                                 >
                                     Зберегти
                                 </button>

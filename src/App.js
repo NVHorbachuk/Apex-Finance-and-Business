@@ -5,7 +5,7 @@ import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-route
 // Імпортуємо Firebase
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, signInWithCustomToken, signInAnonymously } from 'firebase/auth';
-import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore'; // Імпортуємо doc, getDoc, setDoc
+import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 
 // Імпортуємо компоненти сторінок
 import Dashboard from './pages/Dashboard/Dashboard';
@@ -16,31 +16,35 @@ import Budgets from './pages/Budgets/Budgets';
 import Transactions from './pages/Transactions/Transactions';
 import Accounts from './pages/Accounts/Accounts';
 import AdminPanel from './pages/AdminPanel/AdminPanel';
-import ProfileSettings from './pages/ProfileSettings/ProfileSettings'; // Імпорт нової сторінки
+import ProfileSettings from './pages/ProfileSettings/ProfileSettings';
+import LandingPage from './pages/LandingPage/LandingPage'; // Імпорт нової LandingPage
 
 // Функція-обгортка для захищених маршрутів
-function ProtectedRoute({ children, isAuthenticated, db, auth, userId, userData, setGlobalUserData }) { // Додано setGlobalUserData
+function ProtectedRoute({ children, isAuthenticated, db, auth, userId, userData, setGlobalUserData }) {
     const navigate = useNavigate();
     const currentLocation = window.location.pathname;
 
     useEffect(() => {
-        // Якщо користувач не автентифікований і намагається отримати доступ до захищеного маршруту, перенаправляємо на сторінку входу
-        if (isAuthenticated === false && currentLocation !== '/login' && currentLocation !== '/register') {
+        // Якщо користувач не автентифікований і намагається отримати доступ до захищеного маршруту (крім '/'), перенаправляємо на сторінку входу
+        if (isAuthenticated === false && currentLocation !== '/login' && currentLocation !== '/register' && currentLocation !== '/') {
             navigate('/login');
         }
-        // Якщо користувач автентифікований і знаходиться на сторінках входу/реєстрації, перенаправляємо на головну
+        // Якщо користувач автентифікований і знаходиться на сторінках входу/реєстрації, перенаправляємо на дашборд
         else if (isAuthenticated === true && (currentLocation === '/login' || currentLocation === '/register')) {
-            navigate('/');
+            navigate('/dashboard'); // Перенаправляємо на /dashboard
         }
     }, [isAuthenticated, navigate, currentLocation]);
 
-    // Показуємо завантаження, доки стан автентифікації не буде визначено
     if (isAuthenticated === null) {
         return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans']">Завантаження...</div>;
     }
 
-    // Рендеримо дочірні елементи та передаємо їм props, тільки якщо користувач автентифікований
-    return isAuthenticated ? React.cloneElement(children, { db, auth, userId, userData, setGlobalUserData }) : null; // Передано setGlobalUserData
+    // Якщо це "/" і користувач не автентифікований, дозволяємо відобразити LandingPage без db, auth, userId, userData
+    if (currentLocation === '/' && isAuthenticated === false) {
+        return children;
+    }
+
+    return isAuthenticated ? React.cloneElement(children, { db, auth, userId, userData, setGlobalUserData }) : null;
 }
 
 function App() {
@@ -48,9 +52,8 @@ function App() {
     const [db, setDb] = useState(null);
     const [auth, setAuth] = useState(null);
     const [userId, setUserId] = useState(null);
-    const [userData, setUserData] = useState(null); // Новий стан для даних профілю користувача
+    const [userData, setUserData] = useState(null);
 
-    // Функція для оновлення userData з дочірніх компонентів
     const setGlobalUserData = (data) => {
         setUserData(data);
     };
@@ -106,33 +109,24 @@ function App() {
             };
             authenticateUser();
 
-            const unsubscribe = onAuthStateChanged(authInstance, async (user) => { // Зроблено асинхронним для виклику Firestore
+            const unsubscribe = onAuthStateChanged(authInstance, async (user) => {
                 if (user) {
                     setIsAuthenticated(true);
                     setUserId(user.uid);
 
-                    // Отримання даних профілю користувача з Firestore
-                    try {
-                        const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id'; // Отримуємо appId тут
-                        const userProfileRef = doc(dbInstance, `/artifacts/${appId}/public/data/user_profiles`, user.uid);
-                        const userProfileSnap = await getDoc(userProfileRef);
-                        if (userProfileSnap.exists()) {
-                            setUserData({ id: user.uid, ...userProfileSnap.data() });
-                        } else {
-                            // Якщо профіль не існує, ініціалізуємо його email з Auth.
-                            // firstName та lastName будуть порожніми, доки користувач їх не введе.
-                            setUserData({ id: user.uid, email: user.email, firstName: '', lastName: '' });
-                            // Створюємо порожній профіль, щоб він існував у Firestore при першому вході.
-                            await setDoc(userProfileRef, { email: user.email, userId: user.uid, createdAt: new Date().toISOString() }, { merge: true });
-                        }
-                    } catch (profileError) {
-                        console.error("App.js: Помилка отримання профілю користувача:", profileError);
-                        setUserData({ id: user.uid, email: user.email, firstName: '', lastName: '' }); // Запасний варіант
+                    const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
+                    const userProfileRef = doc(dbInstance, `/artifacts/${appId}/public/data/user_profiles`, user.uid);
+                    const userProfileSnap = await getDoc(userProfileRef);
+                    if (userProfileSnap.exists()) {
+                        setUserData({ id: user.uid, ...userProfileSnap.data() });
+                    } else {
+                        setUserData({ id: user.uid, email: user.email, firstName: '', lastName: '' });
+                        await setDoc(userProfileRef, { email: user.email, userId: user.uid, createdAt: new Date().toISOString() }, { merge: true });
                     }
 
                 } else {
                     setIsAuthenticated(false);
-                    setUserId(null); // Змінено на null, як обговорювалося раніше для персистентності
+                    setUserId(null);
                     setUserData(null);
                 }
             });
@@ -144,16 +138,20 @@ function App() {
             setUserId(null);
             setUserData(null);
         }
-    }, []); // Видалено appId з залежностей, щоб уникнути повторної ініціалізації додатку при зміні appId, чого не відбувається
+    }, []);
 
     return (
         <Router>
             <main className="flex-grow">
                 <Routes>
-                    <Route path="/login" element={<Login db={db} auth={auth} />} /> {/* Передача db, auth */}
-                    <Route path="/register" element={<Register db={db} auth={auth} />} /> {/* Передача db, auth */}
+                    {/* Нова головна сторінка */}
+                    <Route path="/" element={<LandingPage />} />
 
-                    <Route path="/" element={
+                    <Route path="/login" element={<Login db={db} auth={auth} />} />
+                    <Route path="/register" element={<Register db={db} auth={auth} />} />
+
+                    {/* Dashboard тепер на окремому маршруті */}
+                    <Route path="/dashboard" element={
                         <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData}>
                             <Dashboard />
                         </ProtectedRoute>
