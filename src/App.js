@@ -5,7 +5,7 @@ import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-route
 // Імпортуємо Firebase
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, signInWithCustomToken, signInAnonymously } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore'; // Імпортуємо doc, getDoc, setDoc
 
 // Імпортуємо компоненти сторінок
 import Dashboard from './pages/Dashboard/Dashboard';
@@ -16,9 +16,10 @@ import Budgets from './pages/Budgets/Budgets';
 import Transactions from './pages/Transactions/Transactions';
 import Accounts from './pages/Accounts/Accounts';
 import AdminPanel from './pages/AdminPanel/AdminPanel';
+import ProfileSettings from './pages/ProfileSettings/ProfileSettings'; // Імпорт нової сторінки
 
 // Функція-обгортка для захищених маршрутів
-function ProtectedRoute({ children, isAuthenticated, db, auth, userId }) {
+function ProtectedRoute({ children, isAuthenticated, db, auth, userId, userData, setGlobalUserData }) { // Додано setGlobalUserData
     const navigate = useNavigate();
     const currentLocation = window.location.pathname;
 
@@ -39,7 +40,7 @@ function ProtectedRoute({ children, isAuthenticated, db, auth, userId }) {
     }
 
     // Рендеримо дочірні елементи та передаємо їм props, тільки якщо користувач автентифікований
-    return isAuthenticated ? React.cloneElement(children, { db, auth, userId }) : null;
+    return isAuthenticated ? React.cloneElement(children, { db, auth, userId, userData, setGlobalUserData }) : null; // Передано setGlobalUserData
 }
 
 function App() {
@@ -47,9 +48,14 @@ function App() {
     const [db, setDb] = useState(null);
     const [auth, setAuth] = useState(null);
     const [userId, setUserId] = useState(null);
+    const [userData, setUserData] = useState(null); // Новий стан для даних профілю користувача
+
+    // Функція для оновлення userData з дочірніх компонентів
+    const setGlobalUserData = (data) => {
+        setUserData(data);
+    };
 
     useEffect(() => {
-        // Отримуємо конфігурацію Firebase та початковий токен автентифікації з глобальних змінних
         const firebaseConfig = typeof window.__firebase_config !== 'undefined'
             ? JSON.parse(window.__firebase_config)
             : {
@@ -74,36 +80,60 @@ function App() {
             setAuth(authInstance);
             setDb(dbInstance);
 
-            // Виконуємо початкову автентифікацію
             const authenticateUser = async () => {
                 if (initialAuthToken) {
                     try {
                         await signInWithCustomToken(authInstance, initialAuthToken);
                     } catch (error) {
                         console.error("App.js: Помилка входу з custom token:", error);
-                        // Якщо custom token не вдається, не намагайтеся анонімну автентифікацію тут.
-                        // Дозвольте onAuthStateChanged обробити неавтентифікований стан.
+                        try {
+                            await signInAnonymously(authInstance);
+                        } catch (anonError) {
+                            console.error("App.js: Помилка анонімного входу:", anonError);
+                            setIsAuthenticated(false);
+                            setUserId(null);
+                        }
                     }
                 } else {
-                    // Якщо початкового токена немає, спробуйте анонімний вхід (для середовища Canvas)
                     try {
                         await signInAnonymously(authInstance);
                     } catch (anonError) {
                         console.error("App.js: Помилка анонімного входу (без initialAuthToken):", anonError);
+                        setIsAuthenticated(false);
+                        setUserId(null);
                     }
                 }
             };
             authenticateUser();
 
-            // Слухаємо зміни стану автентифікації
-            const unsubscribe = onAuthStateChanged(authInstance, (user) => {
+            const unsubscribe = onAuthStateChanged(authInstance, async (user) => { // Зроблено асинхронним для виклику Firestore
                 if (user) {
                     setIsAuthenticated(true);
-                    setUserId(user.uid); // Використовуємо UID автентифікованого користувача
+                    setUserId(user.uid);
+
+                    // Отримання даних профілю користувача з Firestore
+                    try {
+                        const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id'; // Отримуємо appId тут
+                        const userProfileRef = doc(dbInstance, `/artifacts/${appId}/public/data/user_profiles`, user.uid);
+                        const userProfileSnap = await getDoc(userProfileRef);
+                        if (userProfileSnap.exists()) {
+                            setUserData({ id: user.uid, ...userProfileSnap.data() });
+                        } else {
+                            // Якщо профіль не існує, ініціалізуємо його email з Auth.
+                            // firstName та lastName будуть порожніми, доки користувач їх не введе.
+                            setUserData({ id: user.uid, email: user.email, firstName: '', lastName: '' });
+                            // Створюємо порожній профіль, щоб він існував у Firestore при першому вході.
+                            await setDoc(userProfileRef, { email: user.email, userId: user.uid, createdAt: new Date().toISOString() }, { merge: true });
+                        }
+                    } catch (profileError) {
+                        console.error("App.js: Помилка отримання профілю користувача:", profileError);
+                        setUserData({ id: user.uid, email: user.email, firstName: '', lastName: '' }); // Запасний варіант
+                    }
+
                 } else {
                     setIsAuthenticated(false);
-                    setUserId(null); // Якщо користувач не автентифікований, userId має бути null
-                                    // ProtectedRoute перенаправить на сторінку входу
+                    setUserId(null); // Змінено на null, як обговорювалося раніше для персистентності
+                    setUserData(null);
                 }
             });
 
@@ -112,46 +142,50 @@ function App() {
             console.error("App.js: Конфігурація Firebase недоступна або неповна. Автентифікація не працюватиме належним чином.");
             setIsAuthenticated(false);
             setUserId(null);
+            setUserData(null);
         }
-    }, []);
+    }, []); // Видалено appId з залежностей, щоб уникнути повторної ініціалізації додатку при зміні appId, чого не відбувається
 
     return (
         <Router>
             <main className="flex-grow">
                 <Routes>
-                    {/* Маршрути для входу/реєстрації */}
-                    <Route path="/login" element={<Login db={db} auth={auth} />} />
-                    <Route path="/register" element={<Register db={db} auth={auth} />} />
+                    <Route path="/login" element={<Login db={db} auth={auth} />} /> {/* Передача db, auth */}
+                    <Route path="/register" element={<Register db={db} auth={auth} />} /> {/* Передача db, auth */}
 
-                    {/* Захищені маршрути */}
                     <Route path="/" element={
-                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId}>
+                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData}>
                             <Dashboard />
                         </ProtectedRoute>
                     } />
                     <Route path="/budgets" element={
-                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId}>
+                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData}>
                             <Budgets />
                         </ProtectedRoute>
                     } />
                     <Route path="/transactions" element={
-                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId}>
+                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData}>
                             <Transactions />
                         </ProtectedRoute>
                     } />
                     <Route path="/accounts" element={
-                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId}>
+                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData}>
                             <Accounts />
                         </ProtectedRoute>
                     } />
                     <Route path="/goals" element={
-                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId}>
+                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData}>
                             <Goals />
                         </ProtectedRoute>
                     } />
                     <Route path="/admin" element={
-                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId}>
+                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData}>
                             <AdminPanel />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/profile-settings" element={
+                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData}>
+                            <ProfileSettings />
                         </ProtectedRoute>
                     } />
                 </Routes>
