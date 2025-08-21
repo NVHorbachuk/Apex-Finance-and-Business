@@ -551,10 +551,10 @@ function Dashboard({ db, auth, userId, userData }) { // Додано userData
             {/* Бічна панель */}
             <aside className="w-64 bg-white p-6 shadow-xl flex flex-col justify-between rounded-r-3xl border-r border-gray-100">
                 <div>
-                    <div className="flex items-center mb-10 px-2">
-                        <img src={logoUrl} alt="APEX FINANCE Logo" className="w-10 h-10 mr-3 object-contain rounded-full shadow-sm" />
-                        <span className="text-2xl font-extrabold text-gray-900">APEX FINANCE</span>
-                    </div>
+                    <Link to="/" className="flex items-center mb-10 px-2 cursor-pointer group">
+    <img src={logoUrl} alt="APEX FINANCE Logo" className="w-10 h-10 mr-3 object-contain rounded-full shadow-sm group-hover:scale-105 transition-transform duration-200" />
+    <span className="text-2xl font-extrabold text-gray-900 group-hover:text-blue-700 transition-colors duration-200">APEX FINANCE</span>
+</Link>
                     <nav className="space-y-3">
                         <Link to="/dashboard" className="flex items-center text-blue-700 bg-blue-50 px-4 py-2.5 rounded-xl font-semibold transition-all duration-200 shadow-sm hover:shadow-md">
                             <HomeIcon className="h-5 w-5 mr-3" /> Dashboard

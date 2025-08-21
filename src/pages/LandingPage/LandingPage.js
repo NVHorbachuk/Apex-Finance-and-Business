@@ -253,7 +253,7 @@ function LandingPage() {
                         </button>
                     </form>
                     <p className="text-sm opacity-80 mt-4">
-                        Я прочитав і згоден з <a href="#" className="underline hover:text-white">Умовами та положеннями</a>
+                        Я прочитав і згоден з <Link to="/terms-of-use" className="underline hover:text-white">Умовами та положеннями</Link>
                     </p>
                 </div>
             </section>
@@ -264,25 +264,25 @@ function LandingPage() {
                     <div>
                         <h4 className="font-bold text-gray-100 mb-4">APEX FINANCE</h4>
                         <ul className="space-y-2">
-                            <li><a href="#" className="hover:text-white">Про нас</a></li>
-                            <li><a href="#" className="hover:text-white">Кар'єра</a></li>
-                            <li><a href="#" className="hover:text-white">Контакти</a></li>
+                            <li><Link to="/about-us" className="hover:text-white">Про нас</Link></li>
+                            <li><Link to="/careers" className="hover:text-white">Кар'єра</Link></li>
+                            <li><Link to="/contact-us" className="hover:text-white">Контакти</Link></li>
                         </ul>
                     </div>
                     <div>
                         <h4 className="font-bold text-gray-100 mb-4">Спільнота</h4>
                         <ul className="space-y-2">
-                            <li><a href="#" className="hover:text-white">Блог</a></li>
-                            <li><a href="#" className="hover:text-white">Форум</a></li>
-                            <li><a href="#" className="hover:text-white">Поширені запитання</a></li>
+                            <li><Link to="/blog" className="hover:text-white">Блог</Link></li>
+                            <li><Link to="/forum" className="hover:text-white">Форум</Link></li>
+                            <li><Link to="/faq" className="hover:text-white">Поширені запитання</Link></li>
                         </ul>
                     </div>
                     <div>
                         <h4 className="font-bold text-gray-100 mb-4">Юридичні</h4>
                         <ul className="space-y-2">
-                            <li><a href="#" className="hover:text-white">Політика конфіденційності</a></li>
-                            <li><a href="#" className="hover:text-white">Умови використання</a></li>
-                            <li><a href="#" className="hover:text-white">Політика файлів cookie</a></li>
+                            <li><Link to="/privacy-policy" className="hover:text-white">Політика конфіденційності</Link></li>
+                            <li><Link to="/terms-of-use" className="hover:text-white">Умови використання</Link></li>
+                            <li><Link to="/cookie-policy" className="hover:text-white">Політика файлів cookie</Link></li>
                         </ul>
                     </div>
                     <div className="text-right md:text-left">
@@ -292,13 +292,13 @@ function LandingPage() {
                             <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/Google_Play_Store_badge_EN.svg/2560px-Google_Play_Store_badge_EN.svg.png" alt="Google Play" className="h-10 cursor-pointer mx-auto md:mx-0" />
                         </div>
                         <div className="flex justify-center md:justify-start space-x-4 mt-6">
-                            <a href="#" className="text-gray-400 hover:text-white">
+                            <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white">
                                 <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.505 1.492-3.899 3.777-3.899 1.094 0 2.238.195 2.238.195v2.46h-1.262c-1.226 0-1.628.767-1.628 1.563V12h2.773l-.443 2.89h-2.33V22C18.343 21.128 22 16.991 22 12z" /></svg>
                             </a>
-                            <a href="#" className="text-gray-400 hover:text-white">
+                            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white">
                                 <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07c3.252.148 4.793 1.968 4.904 4.859.062 1.266.077 1.646.077 4.85s-.015 3.584-.077 4.85c-.111 2.891-1.652 4.711-4.904 4.859-1.266.058-1.646.073-4.85.073s-3.584-.015-4.85-.073c-3.252-.148-4.793-1.968-4.904-4.859-.062-1.266-.077-1.646-.077-4.85s.015-3.584.077-4.85c.111-2.891 1.652-4.711 4.904-4.859 1.266-.058 1.646-.073 4.85-.073zm0 1.837c-3.266 0-3.64.014-4.872.073-2.891.132-3.951 1.463-4.043 4.043-.059 1.232-.073 1.606-.073 4.872s.014 3.64.073 4.872c.092 2.58 1.152 3.911 4.043 4.043 1.232.059 1.606.073 4.872.073s3.64-.014 4.872-.073c2.891-.132 3.951-1.463 4.043-4.043.059-1.232.073-1.606.073-4.872s-.014-3.64-.073-4.872c-.092-2.58-1.152-3.911-4.043-4.043-1.232-.059-1.606-.073-4.872-.073zm0 3.65a3.65 3.65 0 100 7.3a3.65 3.65 0 000-7.3zm0 1.837a1.813 1.813 0 110 3.626 1.813 1.813 0 010-3.626zM18.326 5.86a.913.913 0 11-1.826 0 .913.913 0 011.826 0z" /></svg>
                             </a>
-                            <a href="#" className="text-gray-400 hover:text-white">
+                            <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white">
                                 <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12c0 4.84 3.43 8.87 8 9.8V15H8v-3h2v-2.2c0-2.72 1.66-4.2 4.05-4.2.96 0 1.86.17 2.1.2v2.16h-1.28c-1.13 0-1.35.53-1.35 1.32V12h2.69l-.45 3h-2.24v6.79c4.57-.93 8-4.96 8-9.8C22 6.48 17.52 2 12 2z" /></svg>
                             </a>
                         </div>
