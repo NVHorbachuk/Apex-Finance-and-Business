@@ -63,17 +63,17 @@ function LandingPage() {
                             </div>
                             {/* Засновник 2 */}
                             <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 transform hover:scale-[1.03] transition-transform duration-300">
-                                <img src="https://placehold.co/120x120/D1D5DB/4B5563?text=М+К" alt="Марія Коваль" className="h-32 w-32 rounded-full mx-auto mb-6 border-4 border-indigo-400 object-cover" />
-                                <h3 className="font-bold text-2xl text-gray-900 mb-2">Марія Коваль</h3>
+                                <img src="https://placehold.co/120x120/D1D5DB/4B5563?text=А+С" alt="Стефунька Андрій-Святослав" className="h-32 w-32 rounded-full mx-auto mb-6 border-4 border-indigo-400 object-cover" />
+                                <h3 className="font-bold text-2xl text-gray-900 mb-2">Андрій Стефунька</h3>
                                 <p className="text-indigo-600 font-semibold mb-4">Головний технічний директор (CTO)</p>
-                                <p className="text-lg text-gray-700">Марія відповідає за архітектуру та розробку технологічної платформи APEX FINANCE, забезпечуючи її надійність та масштабованість.</p>
+                                <p className="text-lg text-gray-700">Андрій Михайлович відповідає за архітектуру та розробку технологічної платформи APEX FINANCE, забезпечуючи її надійність та масштабованість.</p>
                             </div>
                             {/* Засновник 3 */}
                             <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 transform hover:scale-[1.03] transition-transform duration-300">
-                                <img src="https://placehold.co/120x120/D1D5DB/4B5563?text=Д+Л" alt="Дмитро Лисенко" className="h-32 w-32 rounded-full mx-auto mb-6 border-4 border-indigo-400 object-cover" />
-                                <h3 className="font-bold text-2xl text-gray-900 mb-2">Дмитро Лисенко</h3>
+                                <img src="https://placehold.co/120x120/D1D5DB/4B5563?text=А+Щ" alt="Щерба Андрій" className="h-32 w-32 rounded-full mx-auto mb-6 border-4 border-indigo-400 object-cover" />
+                                <h3 className="font-bold text-2xl text-gray-900 mb-2">Андрій Щерба</h3>
                                 <p className="text-indigo-600 font-semibold mb-4">Головний фінансовий директор (CFO)</p>
-                                <p className="text-lg text-gray-700">Дмитро керує фінансовими операціями та стратегією, забезпечуючи стабільний ріст та відповідність вимогам APEX FINANCE.</p>
+                                <p className="text-lg text-gray-700">Андрій Анатолійович керує фінансовими операціями та стратегією, забезпечуючи стабільний ріст та відповідність вимогам APEX FINANCE.</p>
                             </div>
                         </div>
                     </div>
@@ -177,9 +177,9 @@ function LandingPage() {
                                 "APEX FINANCE дозволив мені зосередитись на інноваціях, не турбуючись про дрібниці у фінансах. Це змінює правила гри для підприємців!"
                             </p>
                             <div className="flex items-center justify-center">
-                                <img src="https://placehold.co/60x60/87CEEB/FFFFFF?text=М.Р." alt="Аватар Марк Р." className="h-14 w-14 rounded-full mr-4 border-2 border-indigo-400" />
+                                <img src="https://placehold.co/60x60/87CEEB/FFFFFF?text=В.д.Б." alt="Аватар Ван ден Брінк." className="h-14 w-14 rounded-full mr-4 border-2 border-indigo-400" />
                                 <div>
-                                    <p className="font-bold text-lg text-gray-900">Марк Р.</p>
+                                    <p className="font-bold text-lg text-gray-900">Ван ден Брінк</p>
                                     <p className="text-gray-600">Технологічний візіонер</p>
                                 </div>
                             </div>
@@ -190,9 +190,9 @@ function LandingPage() {
                                 "Я вражений тим, наскільки APEX FINANCE спрощує складні фінансові дані. Це обов'язково для кожного, хто прагне фінансової майстерності."
                             </p>
                             <div className="flex items-center justify-center">
-                                <img src="https://placehold.co/60x60/90EE90/FFFFFF?text=С.Д." alt="Аватар Софія Д." className="h-14 w-14 rounded-full mr-4 border-2 border-indigo-400" />
+                                <img src="https://placehold.co/60x60/87CEEB/FFFFFF?text=Н.Н.Т." alt="Аватар Нассім Ніколас Талеб." className="h-14 w-14 rounded-full mr-4 border-2 border-indigo-400" />
                                 <div>
-                                    <p className="font-bold text-lg text-gray-900">Софія Д.</p>
+                                    <p className="font-bold text-lg text-gray-900">Нассім Ніколас Талеб</p>
                                     <p className="text-gray-600">Фінансовий експерт</p>
                                 </div>
                             </div>
@@ -203,9 +203,9 @@ function LandingPage() {
                                 "Як інвестор, мені потрібен чіткий і точний огляд. APEX FINANCE надає мені інструменти, необхідні для прийняття розумних рішень."
                             </p>
                             <div className="flex items-center justify-center">
-                                <img src="https://placehold.co/60x60/FFD700/000000?text=А.К." alt="Аватар Анна К." className="h-14 w-14 rounded-full mr-4 border-2 border-indigo-400" />
+                                <img src="https://placehold.co/60x60/87CEEB/FFFFFF?text=С.Д." alt="Стенлі Друкенміллер." className="h-14 w-14 rounded-full mr-4 border-2 border-indigo-400" />
                                 <div>
-                                    <p className="font-bold text-lg text-gray-900">Анна К.</p>
+                                    <p className="font-bold text-lg text-gray-900">Стенлі Друкенміллер</p>
                                     <p className="text-gray-600">Відомий інвестор</p>
                                 </div>
                             </div>
