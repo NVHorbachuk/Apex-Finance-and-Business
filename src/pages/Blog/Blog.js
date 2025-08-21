@@ -13,8 +13,8 @@ function Blog({ userId, userData }) {
         {
             id: 1,
             title: '5 порад для ефективного управління бюджетом',
-            author: 'Олена Ковальчук',
-            date: '15 серпня 2025',
+            author: 'Назарій Горбачук',
+            date: '21 серпня 2025',
             summary: 'Дізнайтеся, як краще планувати свої фінанси та уникати непотрібних витрат за допомогою цих простих порад.',
             imageUrl: 'https://placehold.co/600x400/add8e6/000000?text=Budgeting+Tips',
             content: `
@@ -34,8 +34,8 @@ function Blog({ userId, userData }) {
         {
             id: 2,
             title: 'Інвестування для початківців: З чого почати?',
-            author: 'Іван Петренко',
-            date: '01 серпня 2025',
+            author: 'Назарій Горбачук',
+            date: '20 серпня 2025',
             summary: 'Перші кроки у світ інвестицій. Розберіться з основними поняттями та стратегіями.',
             imageUrl: 'https://placehold.co/600x400/c7f0d0/000000?text=Investing+Basics',
             content: `

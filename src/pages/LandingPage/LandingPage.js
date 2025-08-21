@@ -1,313 +1,378 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import {
-    HomeIcon, CurrencyDollarIcon, PresentationChartLineIcon, CheckBadgeIcon,
-    UserCircleIcon, BellIcon, ClipboardDocumentListIcon // Додано відсутні іконки
-} from '@heroicons/react/24/outline'; // Додаткові іконки
+    AcademicCapIcon, ChartPieIcon, CheckCircleIcon,
+    ShieldCheckIcon, RocketLaunchIcon, UserGroupIcon // Нові іконки для підкреслення функціональності
+} from '@heroicons/react/24/outline';
 
-const logoUrl = "/image.png"; // Переконайтеся, що шлях до логотипу правильний
+const logoUrl = "/image.png";
 
 function LandingPage() {
     return (
-        <div className="min-h-screen bg-gray-50 font-sans text-gray-800">
+        <div className="min-h-screen bg-gradient-to-br from-purple-100 via-blue-100 to-green-100 font-['Inter'] text-gray-900">
             {/* Навігаційна панель */}
-            <header className="py-4 px-6 bg-white shadow-md">
-                <div className="max-w-7xl mx-auto flex justify-between items-center">
+            <header className="py-5 px-8 bg-white bg-opacity-90 backdrop-blur-sm shadow-lg rounded-b-3xl">
+                <div className="max-w-8xl mx-auto flex justify-between items-center">
                     <div className="flex items-center">
-                        <img src={logoUrl} alt="APEX Finance Logo" className="h-10 w-10 mr-3 rounded-full" />
-                        <span className="text-2xl font-bold text-gray-900">APEX FINANCE</span>
+                        <img src={logoUrl} alt="APEX Finance Logo" className="h-12 w-12 mr-3 rounded-full shadow-md border border-gray-100" />
+                        <span className="text-3xl font-extrabold text-indigo-700 tracking-tight">APEX FINANCE</span>
                     </div>
-                    <nav className="space-x-6">
-                        <Link to="/login" className="text-blue-600 hover:text-blue-800 font-medium">Увійти</Link>
-                        <Link to="/register" className="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 transition duration-300 shadow-md">Зареєструватися</Link>
+                    <nav className="space-x-8 flex items-center">
+                        <Link to="/login" className="text-lg font-medium text-gray-700 hover:text-indigo-600 px-4 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-gray-50">Увійти</Link>
+                        <Link to="/register" className="bg-indigo-600 text-white text-lg font-semibold px-6 py-3 rounded-full shadow-lg hover:bg-indigo-700 transition duration-300 ease-in-out transform hover:scale-105">Зареєструватися</Link>
                     </nav>
                 </div>
             </header>
 
             {/* Секція Героя */}
-            <section className="relative bg-gradient-to-r from-blue-600 to-indigo-700 text-white py-20 md:py-32 overflow-hidden">
+            <section className="relative py-24 md:py-40 text-center overflow-hidden">
                 <div className="absolute inset-0 z-0">
-                    {/* Приклад фонових елементів */}
-                    <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-blue-500 opacity-20 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
-                    <div className="absolute bottom-1/3 right-1/4 w-72 h-72 bg-indigo-500 opacity-20 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
-                    <div className="absolute -bottom-1/4 left-1/2 w-80 h-80 bg-purple-500 opacity-20 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
+                    {/* Приклад тонких фонових градієнтів та форм */}
+                    <div className="absolute -top-20 -left-20 w-96 h-96 bg-purple-300 opacity-20 rounded-full filter blur-3xl animate-blob"></div>
+                    <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-blue-300 opacity-20 rounded-full filter blur-3xl animate-blob animation-delay-2000"></div>
+                    <div className="absolute top-1/2 left-1/2 w-72 h-72 bg-green-300 opacity-20 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-4000"></div>
                 </div>
-                <div className="relative z-10 max-w-7xl mx-auto px-6 text-center">
-                    <h1 className="text-4xl md:text-6xl font-extrabold leading-tight mb-6">
-                        Єдиний додаток, який приведе ваші фінанси в порядок
+                <div className="relative z-10 max-w-7xl mx-auto px-6">
+                    <h1 className="text-5xl md:text-7xl font-extrabold leading-tight mb-8 text-gray-900 animate-fade-in-up">
+                        Ваш шлях до фінансової ясності та свободи
                     </h1>
-                    <p className="text-lg md:text-xl mb-10 opacity-90 max-w-2xl mx-auto">
-                        Керуйте грошима на ходу. Отримайте повний контроль над своїми фінансами за допомогою APEX FINANCE.
+                    <p className="text-xl md:text-2xl mb-12 opacity-90 max-w-3xl mx-auto text-gray-700 animate-fade-in-up animation-delay-500">
+                        Отримайте повний контроль над своїми фінансами, спростіть управління грошима та досягайте своїх цілей з APEX FINANCE.
                     </p>
-                    <div className="flex justify-center space-x-4">
-                        <a href="#features" className="bg-white text-blue-700 px-8 py-3 rounded-full text-lg font-semibold shadow-lg hover:bg-gray-100 transition duration-300">
+                    <div className="flex justify-center space-x-6 animate-fade-in-up animation-delay-1000">
+                        <a href="#features" className="bg-indigo-600 text-white px-10 py-4 rounded-full text-xl font-semibold shadow-xl hover:bg-indigo-700 transition duration-300 transform hover:scale-105">
                             Дізнатися більше
                         </a>
-                        <Link to="/register" className="border-2 border-white text-white px-8 py-3 rounded-full text-lg font-semibold hover:bg-white hover:text-blue-700 transition duration-300">
+                        <Link to="/register" className="border-2 border-indigo-600 text-indigo-600 px-10 py-4 rounded-full text-xl font-semibold hover:bg-indigo-600 hover:text-white transition duration-300 transform hover:scale-105">
                             Почати зараз
                         </Link>
                     </div>
-                    <div className="mt-12">
-                        {/* Зображення, схоже на скріншоти додатку */}
-                        <img
-                            src="https://placehold.co/800x450/E0E7FF/3B82F6?text=Інтерфейс+APEX+FINANCE"
-                            alt="APEX Finance App Interface"
-                            className="mx-auto rounded-xl shadow-2xl border-4 border-blue-500"
-                        />
-                        <div className="flex justify-center mt-6 space-x-6">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Download_on_the_App_Store_Badge.svg/2560px-Download_on_the_App_Store_Badge.svg.png" alt="App Store" className="h-10 cursor-pointer" />
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/Google_Play_Store_badge_EN.svg/2560px-Google_Play_Store_badge_EN.svg.png" alt="Google Play" className="h-10 cursor-pointer" />
+
+                    {/* Початково тут було зображення "Сучасний інтерфейс APEX FINANCE" та кнопки магазинів додатків */}
+                    {/* Секція "Наші засновники" (переміщена сюди з низу) */}
+                    <div className="mt-20 animate-fade-in-up animation-delay-1500 py-16 bg-white bg-opacity-80 rounded-3xl shadow-2xl border-2 border-blue-200">
+                        <h2 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-16 px-6">
+                            Наші засновники
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 px-6">
+                            {/* Засновник 1 */}
+                            <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 transform hover:scale-[1.03] transition-transform duration-300">
+                                {/* Оновлене зображення для Назарія Горбачука */}
+                                <img src="/1755782105149.jpg" alt="Назарій Горбачук" className="h-32 w-32 rounded-full mx-auto mb-6 border-4 border-indigo-400 object-cover" />
+                                <h3 className="font-bold text-2xl text-gray-900 mb-2">Назарій Горбачук</h3>
+                                <p className="text-indigo-600 font-semibold mb-4">Головний виконавчий директор (CEO)</p>
+                                <p className="text-lg text-gray-700">Назарій Вікторович- візіонер, який керує стратегією та інноваціями APEX FINANCE, зосереджуючись на створенні зручних фінансових рішень.</p>
+                            </div>
+                            {/* Засновник 2 */}
+                            <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 transform hover:scale-[1.03] transition-transform duration-300">
+                                <img src="https://placehold.co/120x120/D1D5DB/4B5563?text=М+К" alt="Марія Коваль" className="h-32 w-32 rounded-full mx-auto mb-6 border-4 border-indigo-400 object-cover" />
+                                <h3 className="font-bold text-2xl text-gray-900 mb-2">Марія Коваль</h3>
+                                <p className="text-indigo-600 font-semibold mb-4">Головний технічний директор (CTO)</p>
+                                <p className="text-lg text-gray-700">Марія відповідає за архітектуру та розробку технологічної платформи APEX FINANCE, забезпечуючи її надійність та масштабованість.</p>
+                            </div>
+                            {/* Засновник 3 */}
+                            <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 transform hover:scale-[1.03] transition-transform duration-300">
+                                <img src="https://placehold.co/120x120/D1D5DB/4B5563?text=Д+Л" alt="Дмитро Лисенко" className="h-32 w-32 rounded-full mx-auto mb-6 border-4 border-indigo-400 object-cover" />
+                                <h3 className="font-bold text-2xl text-gray-900 mb-2">Дмитро Лисенко</h3>
+                                <p className="text-indigo-600 font-semibold mb-4">Головний фінансовий директор (CFO)</p>
+                                <p className="text-lg text-gray-700">Дмитро керує фінансовими операціями та стратегією, забезпечуючи стабільний ріст та відповідність вимогам APEX FINANCE.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            {/* Секція "Як привести фінанси в порядок" */}
-            <section id="features" className="py-20 bg-white">
+            {/* Секція "Ключові особливості" */}
+            <section id="features" className="py-24 bg-white rounded-t-3xl shadow-inner">
                 <div className="max-w-7xl mx-auto px-6 text-center">
-                    <h2 className="text-4xl font-extrabold text-gray-900 mb-12">
-                        Як APEX FINANCE приведе ваші гроші в порядок?
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-                        <div className="p-8 rounded-lg shadow-lg bg-blue-50">
-                            <HomeIcon className="h-12 w-12 text-blue-600 mx-auto mb-6" />
-                            <h3 className="text-2xl font-semibold mb-4 text-gray-900">Ідеальний контроль</h3>
-                            <p className="text-gray-700">Отримайте повний контроль над усіма своїми грошовими витратами, банківськими рахунками, кредитними картками та іншими активами в одному місці.</p>
-                        </div>
-                        <div className="p-8 rounded-lg shadow-lg bg-green-50">
-                            <PresentationChartLineIcon className="h-12 w-12 text-green-600 mx-auto mb-6" />
-                            <h3 className="text-2xl font-semibold mb-4 text-gray-900">Швидкий огляд</h3>
-                            <p className="text-gray-700">Отримайте швидкий огляд ваших загальних доходів та витрат, а також того, куди йдуть ваші гроші, і все це в одному місці.</p>
-                        </div>
-                        <div className="p-8 rounded-lg shadow-lg bg-purple-50">
-                            <CheckBadgeIcon className="h-12 w-12 text-purple-600 mx-auto mb-6" />
-                            <h3 className="text-2xl font-semibold mb-4 text-gray-900">Розумні бюджети</h3>
-                            <p className="text-gray-700">Використовуйте наші розумні бюджети, щоб заощадити гроші на новий автомобіль, мрійливу відпустку або іншу велику покупку.</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            {/* Секція "Кроки" */}
-            <section className="py-20 bg-gray-50">
-                <div className="max-w-7xl mx-auto px-6">
-                    <h2 className="text-4xl font-extrabold text-gray-900 text-center mb-16">
-                        Прості кроки до фінансової свободи
+                    <h2 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-16">
+                        Особливості, які вам сподобаються
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
-                        {/* Крок 1 */}
-                        <div className="flex flex-col items-center text-center p-6 rounded-lg shadow-md bg-white">
-                            <span className="text-5xl font-extrabold text-blue-600 mb-4">1</span>
-                            <h3 className="text-2xl font-semibold text-gray-900 mb-3">Відстежуйте свій грошовий потік</h3>
-                            <ul className="text-left text-gray-700 space-y-2">
-                                <li className="flex items-start">
-                                    <span className="text-green-500 mr-2">✔</span> Підключіть свої банківські рахунки, і всі ваші транзакції автоматично імпортуватимуться.
-                                </li>
-                                <li className="flex items-start">
-                                    <span className="text-green-500 mr-2">✔</span> Підключіть свій криптогаманець та електронний гаманець для повного огляду вашого грошового потоку.
-                                </li>
-                                <li className="flex items-start">
-                                    <span className="text-green-500 mr-2">✔</span> Додайте свої грошові витрати вручну.
-                                </li>
-                            </ul>
-                            <img
-                                src="https://placehold.co/300x200/F0F4F8/3B82F6?text=Рахунки+та+Баланси"
-                                alt="Accounts and Balances"
-                                className="mt-8 rounded-lg shadow-sm"
-                            />
+                        {/* Картка 1: Інтелектуальний бюджет */}
+                        <div className="p-10 rounded-2xl shadow-xl bg-gradient-to-br from-blue-50 to-indigo-50 transform hover:-translate-y-3 transition-transform duration-300 ease-out border border-blue-100">
+                            <AcademicCapIcon className="h-16 w-16 text-blue-600 mx-auto mb-8" />
+                            <h3 className="text-3xl font-bold mb-4 text-gray-900">Інтелектуальний бюджет</h3>
+                            <p className="text-lg text-gray-700">Створюйте персоналізовані бюджети, які адаптуються до ваших витрат, і отримуйте сповіщення, щоб залишатися на правильному шляху.</p>
                         </div>
-
-                        {/* Крок 2 */}
-                        <div className="flex flex-col items-center text-center p-6 rounded-lg shadow-md bg-white">
-                            <span className="text-5xl font-extrabold text-green-600 mb-4">2</span>
-                            <h3 className="text-2xl font-semibold text-gray-900 mb-3">Зрозумійте свої фінансові звички</h3>
-                            <ul className="text-left text-gray-700 space-y-2">
-                                <li className="flex items-start">
-                                    <span className="text-green-500 mr-2">✔</span> Аналізуйте свої фінанси за допомогою красивих, простих у використанні та зрозумілих графіків. Немає потреби у складних Excel-таблицях.
-                                </li>
-                                <li className="flex items-start">
-                                    <span className="text-green-500 mr-2">✔</span> Подивіться, куди йдуть ваші гроші та де вони надходять щомісяця.
-                                </li>
-                                <li className="flex items-start">
-                                    <span className="text-green-500 mr-2">✔</span> Подивіться, чи витрачаєте ви менше, ніж хочете, в одному місці і за 1 клік.
-                                </li>
-                            </ul>
-                            <img
-                                src="https://placehold.co/300x200/F0F4F8/38A169?text=Графік+Витрат"
-                                alt="Spending Graph"
-                                className="mt-8 rounded-lg shadow-sm"
-                            />
+                        {/* Картка 2: Комплексна звітність */}
+                        <div className="p-10 rounded-2xl shadow-xl bg-gradient-to-br from-green-50 to-teal-50 transform hover:-translate-y-3 transition-transform duration-300 ease-out border border-green-100">
+                            <ChartPieIcon className="h-16 w-16 text-green-600 mx-auto mb-8" />
+                            <h3 className="text-3xl font-bold mb-4 text-gray-900">Комплексна звітність</h3>
+                            <p className="text-lg text-gray-700">Отримуйте детальні графіки та звіти про свої доходи, витрати та заощадження, щоб приймати обґрунтовані фінансові рішення.</p>
                         </div>
-
-                        {/* Крок 3 */}
-                        <div className="flex flex-col items-center text-center p-6 rounded-lg shadow-md bg-white">
-                            <span className="text-5xl font-extrabold text-purple-600 mb-4">3</span>
-                            <h3 className="text-2xl font-semibold text-gray-900 mb-3">Зробіть свої витрати безстресовими</h3>
-                            <ul className="text-left text-gray-700 space-y-2">
-                                <li className="flex items-start">
-                                    <span className="text-green-500 mr-2">✔</span> Встановіть розумні бюджети, щоб не перевитрачати кошти у вибраній категорії.
-                                </li>
-                                <li className="flex items-start">
-                                    <span className="text-green-500 mr-2">✔</span> Зберігайте гроші на свої майбутні мрії.
-                                </li>
-                            </ul>
-                            <img
-                                src="https://placehold.co/300x200/F0F4F8/805AD5?text=Бюджети+та+Цілі"
-                                alt="Budgets and Goals"
-                                className="mt-8 rounded-lg shadow-sm"
-                            />
+                        {/* Картка 3: Захист даних */}
+                        <div className="p-10 rounded-2xl shadow-xl bg-gradient-to-br from-purple-50 to-pink-50 transform hover:-translate-y-3 transition-transform duration-300 ease-out border border-purple-100">
+                            <ShieldCheckIcon className="h-16 w-16 text-purple-600 mx-auto mb-8" />
+                            <h3 className="text-3xl font-bold mb-4 text-gray-900">Захист даних</h3>
+                            <p className="text-lg text-gray-700">Ваші фінансові дані захищені за допомогою передових технологій шифрування та багаторівневих протоколів безпеки.</p>
+                        </div>
+                        {/* Картка 4: Управління цілями */}
+                        <div className="p-10 rounded-2xl shadow-xl bg-gradient-to-br from-orange-50 to-red-50 transform hover:-translate-y-3 transition-transform duration-300 ease-out border border-orange-100">
+                            <RocketLaunchIcon className="h-16 w-16 text-orange-600 mx-auto mb-8" />
+                            <h3 className="text-3xl font-bold mb-4 text-gray-900">Управління цілями</h3>
+                            <p className="text-lg text-gray-700">Встановлюйте та відстежуйте свої фінансові цілі – від великих покупок до пенсії – з нашими інтуїтивно зрозумілими інструментами.</p>
+                        </div>
+                        {/* Картка 5: Відстеження транзакцій */}
+                        <div className="p-10 rounded-2xl shadow-xl bg-gradient-to-br from-yellow-50 to-amber-50 transform hover:-translate-y-3 transition-transform duration-300 ease-out border border-yellow-100">
+                            <CheckCircleIcon className="h-16 w-16 text-yellow-600 mx-auto mb-8" />
+                            <h3 className="text-3xl font-bold mb-4 text-gray-900">Відстеження транзакцій</h3>
+                            <p className="text-lg text-gray-700">Легко відстежуйте всі свої транзакції, категоризуйте їх та отримуйте повний огляд своїх витрат.</p>
+                        </div>
+                        {/* Картка 6: Спільне використання */}
+                        <div className="p-10 rounded-2xl shadow-xl bg-gradient-to-br from-pink-50 to-fuchsia-50 transform hover:-translate-y-3 transition-transform duration-300 ease-out border border-pink-100">
+                            <UserGroupIcon className="h-16 w-16 text-fuchsia-600 mx-auto mb-8" />
+                            <h3 className="text-3xl font-bold mb-4 text-gray-900">Спільне використання</h3>
+                            <p className="text-lg text-gray-700">Спільне управління фінансами з партнером або сім'єю для досягнення спільних цілей.</p>
                         </div>
                     </div>
                 </div>
             </section>
 
-            {/* Секція "Функції, які люблять наші користувачі" */}
-            <section className="py-20 bg-white">
+            {/* Секція "Про нас говорять" */}
+            <section className="py-24 bg-gradient-to-br from-teal-50 to-cyan-50">
                 <div className="max-w-7xl mx-auto px-6 text-center">
-                    <h2 className="text-4xl font-extrabold text-gray-900 mb-12">
-                        Функції, які люблять наші користувачі
+                    <h2 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-16">
+                        Про нас говорять
                     </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 text-left">
-                        <div className="p-6 rounded-lg shadow-sm bg-blue-50 flex items-start">
-                            <CurrencyDollarIcon className="h-8 w-8 text-blue-600 mr-4 mt-1" />
-                            <div>
-                                <h3 className="text-xl font-semibold mb-2">Спільні гаманці</h3>
-                                <p className="text-gray-700">Популярні серед пар, сімей та сусідів по кімнаті, які керують своїми фінансами разом.</p>
-                            </div>
+                    <p className="text-xl md:text-2xl mb-12 opacity-90 max-w-3xl mx-auto text-gray-700">
+                        APEX FINANCE високо оцінили як у вітчизняних, так і в міжнародних виданнях за інноваційність та зручність.
+                    </p>
+
+                    <div className="mb-16">
+                        <h3 className="text-3xl font-bold text-gray-800 mb-8">В українських виданнях</h3>
+                        <div className="flex flex-wrap justify-center items-center gap-10">
+                            {/* Приклади логотипів українських видань */}
+                            <img src="https://placehold.co/150x60/ADD8E6/000000?text=Forbes.ua" alt="Forbes Ukraine Logo" className="h-16 cursor-pointer transform hover:scale-110 transition-transform duration-200" />
+                            <img src="https://placehold.co/150x60/ADD8E6/000000?text=NV.ua" alt="NV Ukraine Logo" className="h-16 cursor-pointer transform hover:scale-110 transition-transform duration-200" />
+                            <img src="https://placehold.co/150x60/ADD8E6/000000?text=Економічна+Правда" alt="Ekonomichna Pravda Logo" className="h-16 cursor-pointer transform hover:scale-110 transition-transform duration-200" />
+                            <img src="https://placehold.co/150x60/ADD8E6/000000?text=Finance.ua" alt="Finance.ua Logo" className="h-16 cursor-pointer transform hover:scale-110 transition-transform duration-200" />
                         </div>
-                        <div className="p-6 rounded-lg shadow-sm bg-green-50 flex items-start">
-                            <HomeIcon className="h-8 w-8 text-green-600 mr-4 mt-1" />
-                            <div>
-                                <h3 className="text-xl font-semibold mb-2">Підключення банківських рахунків</h3>
-                                <p className="text-gray-700">Spendee є бажаним додатком для людей, які платять переважно карткою.</p>
-                            </div>
-                        </div>
-                        <div className="p-6 rounded-lg shadow-sm bg-purple-50 flex items-start">
-                            <UserCircleIcon className="h-8 w-8 text-purple-600 mr-4 mt-1" />
-                            <div>
-                                <h3 className="text-xl font-semibold mb-2">Налаштуйте APEX FINANCE</h3>
-                                <p className="text-gray-700">Налаштуйте свої категорії, додайте зображення або місце розташування до кожного витрати.</p>
-                            </div>
-                        </div>
-                        <div className="p-6 rounded-lg shadow-sm bg-yellow-50 flex items-start">
-                            <CurrencyDollarIcon className="h-8 w-8 text-yellow-600 mr-4 mt-1" />
-                            <div>
-                                <h3 className="text-xl font-semibold mb-2">Кілька валют</h3>
-                                <p className="text-gray-700">Чудово підходить для мандрівників та цифрових кочівників, які керують грошима у кількох валютах.</p>
-                            </div>
-                        </div>
-                        <div className="p-6 rounded-lg shadow-sm bg-red-50 flex items-start">
-                            <BellIcon className="h-8 w-8 text-red-600 mr-4 mt-1" />
-                            <div>
-                                <h3 className="text-xl font-semibold mb-2">Сповіщення та нагадування</h3>
-                                <p className="text-gray-700">Будуть сповіщати вас, щоб ви не перевитрачали кошти у бюджеті.</p>
-                            </div>
-                        </div>
-                        <div className="p-6 rounded-lg shadow-sm bg-blue-100 flex items-start">
-                            <ClipboardDocumentListIcon className="h-8 w-8 text-blue-800 mr-4 mt-1" />
-                            <div>
-                                <h3 className="text-xl font-semibold mb-2">Синхронізація та резервне копіювання</h3>
-                                <p className="text-gray-700">Є цінною функцією для всіх, хто використовує APEX FINANCE на кількох пристроях і ділиться з іншими.</p>
-                            </div>
+                    </div>
+
+                    <div>
+                        <h3 className="text-3xl font-bold text-gray-800 mb-8">У зарубіжних виданнях</h3>
+                        <div className="flex flex-wrap justify-center items-center gap-10">
+                            {/* Приклади логотипів зарубіжних видань */}
+                            <img src="https://placehold.co/150x60/ADD8E6/000000?text=TechCrunch" alt="TechCrunch Logo" className="h-16 cursor-pointer transform hover:scale-110 transition-transform duration-200" />
+                            <img src="https://placehold.co/150x60/ADD8E6/000000?text=Bloomberg" alt="Bloomberg Logo" className="h-16 cursor-pointer transform hover:scale-110 transition-transform duration-200" />
+                            <img src="https://placehold.co/150x60/ADD8E6/000000?text=The+Fintech+Times" alt="The Fintech Times Logo" className="h-16 cursor-pointer transform hover:scale-110 transition-transform duration-200" />
+                            <img src="https://placehold.co/150x60/ADD8E6/000000?text=Financial+Times" alt="Financial Times Logo" className="h-16 cursor-pointer transform hover:scale-110 transition-transform duration-200" />
                         </div>
                     </div>
                 </div>
             </section>
 
-            {/* Секція "Про нас пишуть" (залишаємо заглушки) */}
-            <section className="py-20 bg-gray-50">
+            {/* NEW: Testimonials from Famous People Section */}
+            <section className="py-24 bg-gradient-to-br from-blue-50 via-gray-50 to-purple-50">
                 <div className="max-w-7xl mx-auto px-6 text-center">
-                    <h2 className="text-4xl font-extrabold text-gray-900 mb-12">
-                        Про нас писали
+                    <h2 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-16">
+                        Що говорять про нас відомі особистості
                     </h2>
-                    <div className="flex justify-center flex-wrap gap-8 items-center">
-                        <img src="https://placehold.co/150x50/E2E8F0/A0AEC0?text=THE+VERGE" alt="The Verge Logo" className="h-10 opacity-75 grayscale hover:grayscale-0 transition-all duration-300" />
-                        <img src="https://placehold.co/150x50/E2E8F0/A0AEC0?text=BUSINESS+INSIDER" alt="Business Insider Logo" className="h-10 opacity-75 grayscale hover:grayscale-0 transition-all duration-300" />
-                        <img src="https://placehold.co/150x50/E2E8F0/A0AEC0?text=THE+WALL+STREET+JOURNAL" alt="The Wall Street Journal Logo" className="h-10 opacity-75 grayscale hover:grayscale-0 transition-all duration-300" />
-                        <img src="https://placehold.co/150x50/E2E8F0/A0AEC0?text=LIFEHACKER" alt="Lifehacker Logo" className="h-10 opacity-75 grayscale hover:grayscale-0 transition-all duration-300" />
-                        <img src="https://placehold.co/150x50/E2E8F0/A0AEC0?text=NBC+NEWS" alt="NBC News Logo" className="h-10 opacity-75 grayscale hover:grayscale-0 transition-all duration-300" />
+                    <p className="text-xl md:text-2xl mb-12 opacity-90 max-w-3xl mx-auto text-gray-700">
+                        Дізнайтеся, чому лідери галузі та впливові особи довіряють APEX FINANCE для управління своїми фінансами.
+                    </p>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                        {/* Відгук 1 */}
+                        <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 transform hover:scale-[1.03] transition-transform duration-300">
+                            <p className="text-lg text-gray-700 mb-6 italic">
+                                "APEX FINANCE дозволив мені зосередитись на інноваціях, не турбуючись про дрібниці у фінансах. Це змінює правила гри для підприємців!"
+                            </p>
+                            <div className="flex items-center justify-center">
+                                <img src="https://placehold.co/60x60/87CEEB/FFFFFF?text=М.Р." alt="Аватар Марк Р." className="h-14 w-14 rounded-full mr-4 border-2 border-indigo-400" />
+                                <div>
+                                    <p className="font-bold text-lg text-gray-900">Марк Р.</p>
+                                    <p className="text-gray-600">Технологічний візіонер</p>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Відгук 2 */}
+                        <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 transform hover:scale-[1.03] transition-transform duration-300">
+                            <p className="text-lg text-gray-700 mb-6 italic">
+                                "Я вражений тим, наскільки APEX FINANCE спрощує складні фінансові дані. Це обов'язково для кожного, хто прагне фінансової майстерності."
+                            </p>
+                            <div className="flex items-center justify-center">
+                                <img src="https://placehold.co/60x60/90EE90/FFFFFF?text=С.Д." alt="Аватар Софія Д." className="h-14 w-14 rounded-full mr-4 border-2 border-indigo-400" />
+                                <div>
+                                    <p className="font-bold text-lg text-gray-900">Софія Д.</p>
+                                    <p className="text-gray-600">Фінансовий експерт</p>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Відгук 3 */}
+                        <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 transform hover:scale-[1.03] transition-transform duration-300">
+                            <p className="text-lg text-gray-700 mb-6 italic">
+                                "Як інвестор, мені потрібен чіткий і точний огляд. APEX FINANCE надає мені інструменти, необхідні для прийняття розумних рішень."
+                            </p>
+                            <div className="flex items-center justify-center">
+                                <img src="https://placehold.co/60x60/FFD700/000000?text=А.К." alt="Аватар Анна К." className="h-14 w-14 rounded-full mr-4 border-2 border-indigo-400" />
+                                <div>
+                                    <p className="font-bold text-lg text-gray-900">Анна К.</p>
+                                    <p className="text-gray-600">Відомий інвестор</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
 
             {/* Секція CTA */}
-            <section className="bg-blue-700 text-white py-16">
+            <section className="bg-gradient-to-br from-indigo-700 to-purple-800 text-white py-20 rounded-t-3xl shadow-2xl">
                 <div className="max-w-4xl mx-auto px-6 text-center">
-                    <h2 className="text-3xl md:text-4xl font-bold mb-6">
-                        Отримуйте щомісячні поради щодо грошей і будьте в курсі своїх фінансів
+                    <h2 className="text-4xl md:text-5xl font-bold mb-8">
+                        Готові взяти під контроль свої фінанси?
                     </h2>
-                    <p className="text-lg opacity-90 mb-8">
-                        Підпишіться на нашу розсилку, щоб отримувати ексклюзивні поради та новини.
+                    <p className="text-xl opacity-90 mb-12">
+                        Приєднуйтесь до тисяч задоволених користувачів, які вже змінили своє фінансове життя.
                     </p>
-                    <form className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-4">
+                    <form className="flex flex-col sm:flex-row justify-center items-center space-y-6 sm:space-y-0 sm:space-x-6">
                         <input
                             type="email"
-                            placeholder="Ваш email"
-                            className="w-full sm:w-80 p-3 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            placeholder="Введіть свій email"
+                            className="w-full sm:w-96 p-4 rounded-xl text-gray-900 text-lg focus:outline-none focus:ring-4 focus:ring-blue-300 shadow-inner"
                         />
                         <button
                             type="submit"
-                            className="w-full sm:w-auto bg-green-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-600 transition duration-300 shadow-md"
+                            className="w-full sm:w-auto bg-green-500 text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-green-600 transition duration-300 shadow-lg transform hover:scale-105"
                         >
-                            Підписатися
+                            Почати безкоштовно
                         </button>
                     </form>
-                    <p className="text-sm opacity-80 mt-4">
+                    <p className="text-sm opacity-80 mt-6">
                         Я прочитав і згоден з <Link to="/terms-of-use" className="underline hover:text-white">Умовами та положеннями</Link>
                     </p>
                 </div>
             </section>
 
             {/* Футер */}
-            <footer className="bg-gray-900 text-gray-300 py-10">
-                <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-8">
+            <footer className="bg-gray-900 text-gray-300 py-12 rounded-b-3xl shadow-xl">
+                <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-10">
                     <div>
-                        <h4 className="font-bold text-gray-100 mb-4">APEX FINANCE</h4>
-                        <ul className="space-y-2">
-                            <li><Link to="/about-us" className="hover:text-white">Про нас</Link></li>
-                            <li><Link to="/careers" className="hover:text-white">Кар'єра</Link></li>
-                            <li><Link to="/contact-us" className="hover:text-white">Контакти</Link></li>
+                        <h4 className="font-bold text-gray-100 text-xl mb-5">APEX FINANCE</h4>
+                        <ul className="space-y-3">
+                            <li><Link to="/about-us" className="hover:text-white transition-colors duration-200">Про нас</Link></li>
+                            <li><Link to="/careers" className="hover:text-white transition-colors duration-200">Кар'єра</Link></li>
+                            <li><Link to="/contact-us" className="hover:text-white transition-colors duration-200">Контакти</Link></li>
                         </ul>
                     </div>
                     <div>
-                        <h4 className="font-bold text-gray-100 mb-4">Спільнота</h4>
-                        <ul className="space-y-2">
-                            <li><Link to="/blog" className="hover:text-white">Блог</Link></li>
-                            <li><Link to="/forum" className="hover:text-white">Форум</Link></li>
-                            <li><Link to="/faq" className="hover:text-white">Поширені запитання</Link></li>
+                        <h4 className="font-bold text-gray-100 text-xl mb-5">Спільнота</h4>
+                        <ul className="space-y-3">
+                            <li><Link to="/blog" className="hover:text-white transition-colors duration-200">Блог</Link></li>
+                            <li><Link to="/forum" className="hover:text-white transition-colors duration-200">Форум</Link></li>
+                            <li><Link to="/faq" className="hover:text-white transition-colors duration-200">Поширені запитання</Link></li>
                         </ul>
                     </div>
                     <div>
-                        <h4 className="font-bold text-gray-100 mb-4">Юридичні</h4>
-                        <ul className="space-y-2">
-                            <li><Link to="/privacy-policy" className="hover:text-white">Політика конфіденційності</Link></li>
-                            <li><Link to="/terms-of-use" className="hover:text-white">Умови використання</Link></li>
-                            <li><Link to="/cookie-policy" className="hover:text-white">Політика файлів cookie</Link></li>
+                        <h4 className="font-bold text-gray-100 text-xl mb-5">Юридичні</h4>
+                        <ul className="space-y-3">
+                            <li><Link to="/privacy-policy" className="hover:text-white transition-colors duration-200">Політика конфіденційності</Link></li>
+                            <li><Link to="/terms-of-use" className="hover:text-white transition-colors duration-200">Умови використання</Link></li>
+                            <li><Link to="/cookie-policy" className="hover:text-white transition-colors duration-200">Політика файлів cookie</Link></li>
                         </ul>
                     </div>
                     <div className="text-right md:text-left">
-                        <h4 className="font-bold text-gray-100 mb-4">Завантажте додаток</h4>
-                        <div className="space-y-3">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Download_on_the_App_Store_Badge.svg/2560px-Download_on_the_App_Store_Badge.svg.png" alt="App Store" className="h-10 cursor-pointer mx-auto md:mx-0" />
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/Google_Play_Store_badge_EN.svg/2560px-Google_Play_Store_badge_EN.svg.png" alt="Google Play" className="h-10 cursor-pointer mx-auto md:mx-0" />
+                        <h4 className="font-bold text-gray-100 text-xl mb-5">Завантажте додаток</h4>
+                        <div className="space-y-4">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Download_on_the_App_Store_Badge.svg/2560px-Download_on_the_App_Store_Badge.svg.png" alt="App Store" className="h-14 cursor-pointer mx-auto md:mx-0 transition-transform duration-220 hover:scale-105" />
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/78/Google_Play_Store_badge_EN.svg/2560px-Google_Play_Store_badge_EN.svg.png" alt="Google Play" className="h-14 cursor-pointer mx-auto md:mx-0 transition-transform duration-220 hover:scale-105" />
                         </div>
-                        <div className="flex justify-center md:justify-start space-x-4 mt-6">
-                            <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white">
-                                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.505 1.492-3.899 3.777-3.899 1.094 0 2.238.195 2.238.195v2.46h-1.262c-1.226 0-1.628.767-1.628 1.563V12h2.773l-.443 2.89h-2.33V22C18.343 21.128 22 16.991 22 12z" /></svg>
+                        <div className="flex justify-center md:justify-start space-x-6 mt-8">
+                            <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transform hover:scale-110 transition-transform duration-200">
+                                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.505 1.492-3.899 3.777-3.899 1.094 0 2.238.195 2.238.195v2.46h-1.262c-1.226 0-1.628.767-1.628 1.563V12h2.773l-.443 2.89h-2.33V22C18.343 21.128 22 16.991 22 12z" /></svg>
                             </a>
-                            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white">
-                                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07c3.252.148 4.793 1.968 4.904 4.859.062 1.266.077 1.646.077 4.85s-.015 3.584-.077 4.85c-.111 2.891-1.652 4.711-4.904 4.859-1.266.058-1.646.073-4.85.073s-3.584-.015-4.85-.073c-3.252-.148-4.793-1.968-4.904-4.859-.062-1.266-.077-1.646-.077-4.85s.015-3.584.077-4.85c.111-2.891 1.652-4.711 4.904-4.859 1.266-.058 1.646-.073 4.85-.073zm0 1.837c-3.266 0-3.64.014-4.872.073-2.891.132-3.951 1.463-4.043 4.043-.059 1.232-.073 1.606-.073 4.872s.014 3.64.073 4.872c.092 2.58 1.152 3.911 4.043 4.043 1.232.059 1.606.073 4.872.073s3.64-.014 4.872-.073c2.891-.132 3.951-1.463 4.043-4.043.059-1.232.073-1.606.073-4.872s-.014-3.64-.073-4.872c-.092-2.58-1.152-3.911-4.043-4.043-1.232-.059-1.606-.073-4.872-.073zm0 3.65a3.65 3.65 0 100 7.3a3.65 3.65 0 000-7.3zm0 1.837a1.813 1.813 0 110 3.626 1.813 1.813 0 010-3.626zM18.326 5.86a.913.913 0 11-1.826 0 .913.913 0 011.826 0z" /></svg>
+                            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transform hover:scale-110 transition-transform duration-200">
+                                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07c3.252.148 4.793 1.968 4.904 4.859.062 1.266.077 1.646.077 4.85s-.015 3.584-.077 4.85c-.111 2.891-1.652 4.711-4.904 4.859-1.266.058-1.646.073-4.85.073s-3.584-.015-4.85-.073c-3.252-.148-4.793-1.968-4.904-4.859-.062-1.266-.077-1.646-.077-4.85s.015-3.584.077-4.85c.111-2.891 1.652-4.711 4.904-4.859 1.266-.058 1.646-.073 4.85-.073zm0 1.837c-3.266 0-3.64.014-4.872.073-2.891.132-3.951 1.463-4.043 4.043-.059 1.232-.073 1.606-.073 4.872s.014 3.64.073 4.872c.092 2.58 1.152 3.911 4.043 4.043 1.232.059 1.606.073 4.872.073s3.64-.014 4.872-.073c2.891-.132 3.951-1.463 4.043-4.043.059-1.232.073-1.606.073-4.872s-.014-3.64-.073-4.872c-.092-2.58-1.152-3.911-4.043-4.043-1.232-.059-1.606-.073-4.872-.073zm0 3.65a3.65 3.65 0 100 7.3a3.65 3.65 0 000-7.3zm0 1.837a1.813 1.813 0 110 3.626 1.813 1.813 0 010-3.626zM18.326 5.86a.913.913 0 11-1.826 0 .913.913 0 011.826 0z" /></svg>
                             </a>
-                            <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white">
-                                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12c0 4.84 3.43 8.87 8 9.8V15H8v-3h2v-2.2c0-2.72 1.66-4.2 4.05-4.2.96 0 1.86.17 2.1.2v2.16h-1.28c-1.13 0-1.35.53-1.35 1.32V12h2.69l-.45 3h-2.24v6.79c4.57-.93 8-4.96 8-9.8C22 6.48 17.52 2 12 2z" /></svg>
+                            <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transform hover:scale-110 transition-transform duration-200">
+                                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12c0 4.84 3.43 8.87 8 9.8V15H8v-3h2v-2.2c0-2.72 1.66-4.2 4.05-4.2.96 0 1.86.17 2.1.2v2.16h-1.28c-1.13 0-1.35.53-1.35 1.32V12h2.69l-.45 3h-2.24v6.79c4.57-.93 8-4.96 8-9.8C22 6.48 17.52 2 12 2z" /></svg>
                             </a>
                         </div>
                     </div>
                 </div>
-                <div className="mt-8 text-center text-gray-500 text-sm">
+                <div className="mt-10 text-center text-gray-500 text-base">
                     <p>&copy; {new Date().getFullYear()} APEX FINANCE. Всі права захищені.</p>
                 </div>
             </footer>
+             {/* Tailwind CSS keyframes for animations */}
+             <style>
+                {`
+                @keyframes blob {
+                    0% {
+                        transform: translate(0px, 0px) scale(1);
+                    }
+                    33% {
+                        transform: translate(30px, -50px) scale(1.1);
+                    }
+                    66% {
+                        transform: translate(-20px, 20px) scale(0.9);
+                    }
+                    100% {
+                        transform: translate(0px, 0px) scale(1);
+                    }
+                }
+
+                .animate-blob {
+                    animation: blob 7s infinite;
+                }
+
+                .animation-delay-2000 {
+                    animation-delay: 2s;
+                }
+
+                .animation-delay-4000 {
+                    animation-delay: 4s;
+                }
+
+                @keyframes fadeInTop {
+                    0% {
+                        opacity: 0;
+                        transform: translateY(-20px);
+                    }
+                    100% {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+
+                .animate-fade-in-up {
+                    animation: fadeInTop 0.8s ease-out forwards;
+                }
+
+                .animation-delay-500 {
+                    animation-delay: 0.5s;
+                }
+
+                .animation-delay-1000 {
+                    animation-delay: 1s;
+                }
+
+                .animation-delay-1500 {
+                    animation-delay: 1.5s;
+                }
+
+                @keyframes bounceSlow {
+                    0%, 100% {
+                        transform: translateY(0);
+                    }
+                    50% {
+                        transform: translateY(-10px);
+                    }
+                }
+
+                .animate-bounce-slow {
+                    animation: bounceSlow 2s infinite ease-in-out;
+                }
+
+                .animation-delay-200 {
+                    animation-delay: 0.2s;
+                }
+
+                .animation-delay-400 {
+                    animation-delay: 0.4s;
+                }
+                `}
+            </style>
         </div>
     );
 }
