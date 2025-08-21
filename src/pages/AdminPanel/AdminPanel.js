@@ -1,165 +1,371 @@
-import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, doc, deleteDoc, getDocs } from 'firebase/firestore';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-    UsersIcon, TrashIcon, ExclamationTriangleIcon, // Іконки для AdminPanel
-    HomeIcon, BanknotesIcon, CreditCardIcon, Squares2X2Icon, ListBulletIcon, ClipboardDocumentListIcon // Іконки для бічної панелі з Dashboard
+    HomeIcon, ClipboardDocumentListIcon, BellIcon, UserCircleIcon,
+    ChevronDownIcon, BanknotesIcon, CreditCardIcon, Squares2X2Icon, ListBulletIcon, UsersIcon,
+    PencilIcon, TrashIcon, XMarkIcon, ExclamationTriangleIcon, InformationCircleIcon
 } from '@heroicons/react/24/outline';
-import { Link } from 'react-router-dom';
+import { collection, doc, getDocs, updateDoc, deleteDoc, getDoc } from 'firebase/firestore'; // Додано getDoc
+import { signOut } from 'firebase/auth';
+import { useNavigate, Link } from 'react-router-dom';
 
-// URL для логотипу (визначено тут для AdminPanel)
 const logoUrl = "/image.png";
 
+// ====================================================================================
+// ВАЖЛИВО: ЗАМІНІТЬ ЦЕ НА ВАШ АКТУАЛЬНИЙ ADMIN USER ID з Firebase Authentication.
+// Це userId облікового запису, який має доступ до адмін-панелі.
+// ====================================================================================
+const ADMIN_USER_ID = "CawE33GEkZhLFsapAdBr3saDV3F3"; // <<<--- ЗМІНЕНО!
+
 function AdminPanel({ db, auth, userId }) {
-    const [users, setUsers] = useState([]);
+    const [allUsersData, setAllUsersData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-    const [userToDelete, setUserToDelete] = useState(null);
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+    const [editFormData, setEditFormData] = useState({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        address: '',
+        city: '',
+        country: '',
+        currency: 'UAH'
+    });
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveSuccess, setSaveSuccess] = useState(false);
 
-    // Get the application ID
+    const navigate = useNavigate();
     const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
 
+    // Доступні валюти для вибору (скопійовано з ProfileSettings.js)
+    const availableCurrencies = [
+        { code: 'USD', name: 'United States Dollar', symbol: '$' },
+        { code: 'EUR', name: 'Euro', symbol: '€' },
+        { code: 'UAH', name: 'Українська гривня', symbol: '₴' },
+        { code: 'GBP', name: 'British Pound', symbol: '£' },
+        { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
+        { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
+        { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
+        { code: 'CHF', name: 'Swiss Franc', symbol: 'CHF' },
+        { code: 'CNY', name: 'Chinese Yuan', symbol: '¥' },
+        { code: 'SEK', name: 'Swedish Krona', symbol: 'kr' },
+        { code: 'NZD', name: 'New Zealand Dollar', symbol: 'NZ$' },
+        { code: 'MXN', name: 'Mexican Peso', symbol: 'Mex$' },
+        { code: 'SGD', name: 'Singapore Dollar', symbol: 'S$' },
+        { code: 'HKD', name: 'Hong Kong Dollar', symbol: 'HK$' },
+        { code: 'NOK', name: 'Norwegian Krone', symbol: 'kr' },
+        { code: 'KRW', name: 'South Korean Won', symbol: '₩' },
+        { code: 'TRY', name: 'Turkish Lira', symbol: '₺' },
+        { code: 'RUB', name: 'Russian Ruble', symbol: '₽' },
+        { code: 'INR', name: 'Indian Rupee', symbol: '₹' },
+        { code: 'BRL', name: 'Brazilian Real', symbol: 'R$' },
+        { code: 'ZAR', name: 'South African Rand', symbol: 'R' }
+    ];
+
+    // Перевірка доступу адміністратора
     useEffect(() => {
-        if (!db || !userId) {
+        if (!userId || userId !== ADMIN_USER_ID) {
+            navigate('/dashboard'); // Перенаправити, якщо користувач не є адміністратором
+        }
+    }, [userId, navigate]);
+
+    // Функція для отримання всіх користувачів
+    const fetchAllUsers = useCallback(async () => {
+        if (!db) {
+            setError(new Error("База даних не доступна."));
             setLoading(false);
             return;
         }
 
-        const userProfilesCollectionRef = collection(db, `/artifacts/${appId}/public/data/user_profiles`);
+        setLoading(true);
+        try {
+            const usersRef = collection(db, `/artifacts/${appId}/users`);
+            const querySnapshot = await getDocs(usersRef);
+            const usersList = [];
 
-        const unsubscribe = onSnapshot(userProfilesCollectionRef, (snapshot) => {
-            const fetchedUsers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setUsers(fetchedUsers);
+            // Проходимо по кожному документу, який представляє userId
+            for (const docSnapshot of querySnapshot.docs) {
+                const userUid = docSnapshot.id; // Це userId
+                const profileDocRef = doc(db, `/artifacts/${appId}/users/${userUid}/profile`, 'details');
+                const profileDocSnap = await getDoc(profileDocRef);
+
+                let userData = { id: userUid, email: 'Невідомо', firstName: '', lastName: '', phone: '', address: '', city: '', country: '', currency: 'UAH' };
+
+                if (profileDocSnap.exists()) {
+                    userData = { ...userData, ...profileDocSnap.data() };
+                } else {
+                    console.warn(`Profile details not found for user: ${userUid}`);
+                }
+                usersList.push(userData);
+            }
+            setAllUsersData(usersList);
             setLoading(false);
-        }, (err) => {
-            console.error("AdminPanel: Error fetching users:", err);
-            setError(err);
+        } catch (err) {
+                console.error("Помилка отримання даних користувачів:", err);
+            setError(new Error(`Помилка завантаження користувачів: ${err.message}`));
             setLoading(false);
+        }
+    }, [db, appId]);
+
+    useEffect(() => {
+        if (userId === ADMIN_USER_ID) { // Тільки якщо це адміністратор, намагаємося завантажити
+            fetchAllUsers();
+        } else {
+            setLoading(false); // Не адмін, тому не завантажуємо і знімаємо loading
+        }
+    }, [userId, fetchAllUsers]);
+
+    const openEditModal = (user) => {
+        setSelectedUser(user);
+        setEditFormData({
+            firstName: user.firstName || '',
+            lastName: user.lastName || '',
+            email: user.email || '', // Email, як правило, не редагується, але може відображатися
+            phone: user.phone || '',
+            address: user.address || '',
+            city: user.city || '',
+            country: user.country || '',
+            currency: user.currency || 'UAH'
         });
-
-        return () => unsubscribe();
-    }, [db, userId, appId]);
-
-    const handleDeleteUser = (user) => {
-        setUserToDelete(user);
-        setShowDeleteConfirm(true);
+        setIsEditModalOpen(true);
     };
 
-    const confirmDelete = async () => {
-        if (userToDelete && db) {
-            try {
-                // This is a placeholder for actual user deletion logic.
-                // In a real Firebase application, you would typically call a Cloud Function
-                // or a backend API to delete a user from Firebase Authentication
-                // and clean up their associated data (accounts, transactions, etc.).
-                // Directly deleting users via client-side Firestore SDK is NOT secure
-                // and does not delete the user from Firebase Authentication.
+    const closeEditModal = () => {
+        setIsEditModalOpen(false);
+        setSelectedUser(null);
+        setEditFormData({ firstName: '', lastName: '', email: '', phone: '', address: '', city: '', country: '', currency: 'UAH' });
+    };
 
-                // Example placeholder: Delete user's profile document
-                await deleteDoc(doc(db, `/artifacts/${appId}/public/data/user_profiles`, userToDelete.id));
+    const handleEditUserSubmit = async (e) => {
+        e.preventDefault();
+        if (!db || !selectedUser) {
+            setError(new Error("База даних або вибраний користувач недоступні."));
+            return;
+        }
 
-                console.warn(`Attempted to delete user data for userId: ${userToDelete.id}.
-                In a real app, this would involve deleting their private collections
-                like /artifacts/${appId}/users/${userToDelete.id}/accounts, /transactions, etc.,
-                usually via a secure backend function.`);
+        setIsSaving(true);
+        setSaveSuccess(false);
 
-                console.log(`User ${userToDelete.email || userToDelete.id} (profile only) deleted successfully.`);
-            } catch (err) {
-                console.error("Error deleting user:", err);
-                setError(new Error(`Failed to delete user: ${err.message}`));
-            } finally {
-                setShowDeleteConfirm(false);
-                setUserToDelete(null);
-            }
+        try {
+            const userProfileDocRef = doc(db, `/artifacts/${appId}/users/${selectedUser.id}/profile`, 'details');
+            await updateDoc(userProfileDocRef, {
+                firstName: editFormData.firstName.trim(),
+                lastName: editFormData.lastName.trim(),
+                phone: editFormData.phone.trim(),
+                address: editFormData.address.trim(),
+                city: editFormData.city.trim(),
+                country: editFormData.country.trim(),
+                currency: editFormData.currency,
+                updatedAt: new Date().toISOString()
+            });
+            setSaveSuccess(true);
+            setError(null);
+            console.log(`Профіль користувача ${selectedUser.id} успішно оновлено!`);
+            fetchAllUsers(); // Оновити список після збереження
+            setTimeout(() => {
+                setSaveSuccess(false);
+                closeEditModal();
+            }, 1500); // Закрити модальне вікно через 1.5 секунди після успіху
+        } catch (err) {
+            console.error("Помилка оновлення профілю користувача:", err);
+            setError(new Error(`Помилка оновлення профілю: ${err.message}`));
+        } finally {
+            setIsSaving(false);
         }
     };
 
-    const cancelDelete = () => {
-        setShowDeleteConfirm(false);
-        setUserToDelete(null);
+    const openDeleteConfirm = (user) => {
+        setSelectedUser(user);
+        setIsDeleteConfirmOpen(true);
+    };
+
+    const closeDeleteConfirm = () => {
+        setIsDeleteConfirmOpen(false);
+        setSelectedUser(null);
+    };
+
+    const confirmDeleteUser = async () => {
+        if (!db || !selectedUser) {
+            setError(new Error("База даних або вибраний користувач недоступні."));
+            return;
+        }
+
+        setIsSaving(true); // Використовуємо isSaving для індикатора видалення
+        try {
+            // Видалення всіх підколекцій користувача (транзакції, бюджети, цілі, профайл)
+            const subcollections = ['transactions', 'budgets', 'goals'];
+            for (const sub of subcollections) {
+                const subColRef = collection(db, `/artifacts/${appId}/users/${selectedUser.id}/${sub}`);
+                const subDocs = await getDocs(subColRef);
+                for (const doc of subDocs.docs) {
+                    await deleteDoc(doc.ref);
+                }
+            }
+            // Видалення профілю користувача
+            const profileDocRef = doc(db, `/artifacts/${appId}/users/${selectedUser.id}/profile`, 'details');
+            await deleteDoc(profileDocRef);
+
+            // Видалення основного документа користувача
+            const userDocRef = doc(db, `/artifacts/${appId}/users`, selectedUser.id);
+            await deleteDoc(userDocRef);
+
+            setError(null);
+            console.log(`Користувача ${selectedUser.id} та всі його дані успішно видалено!`);
+            fetchAllUsers(); // Оновити список після видалення
+            closeDeleteConfirm();
+        } catch (err) {
+            console.error("Помилка видалення користувача:", err);
+            setError(new Error(`Помилка видалення користувача: ${err.message}`));
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleLogout = async () => {
+        if (!auth) {
+            console.error("Firebase Auth не доступний.");
+            return;
+        }
+        try {
+            await signOut(auth);
+            console.log("Користувач успішно вийшов з облікового запису.");
+            navigate('/login');
+        } catch (error) {
+            console.error("Помилка виходу з облікового запису:", error);
+            setError(new Error(`Помилка виходу: ${error.message}`));
+        }
+    };
+
+    // Визначення імені для відображення
+    const getDisplayName = (user) => {
+        if (user.firstName && user.lastName) return `${user.firstName} ${user.lastName}`;
+        if (user.email) return user.email;
+        return user.id || 'Невідомий користувач';
     };
 
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans']">Завантаження панелі адміністратора...</div>;
     if (error) return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans'] text-red-500">Помилка: {error.message}</div>;
 
+    // Якщо користувач не є адміністратором, ми вже перенаправили його через useEffect
+    // Але на випадок, якщо рендеринг відбудеться до перенаправлення, покажемо пустий екран або повідомлення
+    if (userId !== ADMIN_USER_ID) {
+        return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans'] text-gray-700">Доступ заборонено.</div>;
+    }
+
     return (
-        <div className="flex min-h-screen bg-[#F7FAFC] font-['DM Sans']">
-            {/* Бічна панель */}
-            <aside className="w-64 bg-white p-6 shadow-xl flex flex-col justify-between rounded-r-xl">
+        <div className="flex min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 font-['DM Sans']">
+            {/* Бічна панель (скопійована з Dashboard для послідовності) */}
+            <aside className="w-64 bg-white p-6 shadow-xl flex flex-col justify-between rounded-r-3xl border-r border-gray-100">
                 <div>
-                    <div className="flex items-center mb-10">
-                        <img src={logoUrl} alt="Finance Manager Logo" className="w-8 h-8 mr-2 object-contain" />
-                        <span className="text-xl font-bold text-gray-900">Finance Manager</span>
+                    <div className="flex items-center mb-10 px-2">
+                        <img src={logoUrl} alt="APEX FINANCE Logo" className="w-10 h-10 mr-3 object-contain rounded-full shadow-sm" />
+                        <span className="text-2xl font-extrabold text-gray-900">APEX FINANCE</span>
                     </div>
-                    <nav className="space-y-4">
-                        <Link to="/" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
-                            <HomeIcon className="h-5 w-5 mr-3" /> Home
+                    <nav className="space-y-3">
+                        <Link to="/dashboard" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
+                            <HomeIcon className="h-5 w-5 mr-3" /> Dashboard
                         </Link>
-                        <Link to="/budgets" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                        <Link to="/budgets" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
                             <BanknotesIcon className="h-5 w-5 mr-3" /> Budgets
                         </Link>
-                        <Link to="/goals" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                        <Link to="/goals" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
                             <ListBulletIcon className="h-5 w-5 mr-3" /> Goals
                         </Link>
-                        <Link to="/accounts" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                        <Link to="/accounts" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
                             <CreditCardIcon className="h-5 w-5 mr-3" /> Accounts
                         </Link>
-                        <Link to="/transactions" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                        <Link to="/transactions" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
                             <ClipboardDocumentListIcon className="h-5 w-5 mr-3" /> Transactions
                         </Link>
-                        {/* Current active link for Admin Panel */}
-                        <Link to="/admin" className="flex items-center text-blue-600 bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                        {/* Видалено посилання на Categories */}
+                        {/* <Link to="/categories" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
+                            <Squares2X2Icon className="h-5 w-5 mr-3" /> Categories
+                        </Link> */}
+                        <Link to="/admin" className="flex items-center text-blue-700 bg-blue-50 px-4 py-2.5 rounded-xl font-semibold transition-all duration-200 shadow-sm hover:shadow-md">
                             <UsersIcon className="h-5 w-5 mr-3" /> Admin Panel
+                        </Link>
+                        {/* Посилання на "Налаштування профілю" завжди видиме */}
+                        <Link to="/profile-settings" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
+                            <UserCircleIcon className="h-5 w-5 mr-3" /> Налаштування профілю
                         </Link>
                     </nav>
                 </div>
             </aside>
 
-            {/* Основна область контенту для панелі адміністратора */}
-            <div className="flex-1 flex flex-col p-6 max-w-[1184px] mx-auto">
-                <header className="bg-white p-4 rounded-xl shadow-md flex justify-between items-center mb-6">
-                    <h1 className="text-3xl font-bold text-gray-800">Панель адміністратора</h1>
+            {/* Main content area */}
+            <div className="flex-1 p-8 max-w-[1400px] mx-auto">
+                {/* Header (copied from Dashboard for consistency) */}
+                <header className="bg-white p-5 rounded-2xl shadow-lg flex justify-between items-center mb-8 border border-gray-100">
+                    <h1 className="text-3xl font-extrabold text-gray-900">Панель адміністратора</h1>
+                    <div className="flex items-center space-x-6">
+                        <div className="relative">
+                            <select
+                                className="appearance-none bg-gray-100 text-gray-800 font-semibold py-2.5 px-5 rounded-xl pr-10 cursor-pointer text-base focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all duration-200 hover:bg-gray-200"
+                            >
+                                <option value="Budget 1">Budget 1</option>
+                                <option value="Budget 2">Budget 2</option>
+                            </select>
+                            <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-600 pointer-events-none" />
+                        </div>
+                        <BellIcon className="h-7 w-7 text-gray-500 cursor-pointer hover:text-blue-600 transition-colors duration-200" />
+                        <div className="flex items-center space-x-3">
+                            <UserCircleIcon className="h-10 w-10 text-blue-500 rounded-full bg-blue-100 p-1" />
+                            <div className="text-base">
+                                <p className="font-semibold text-gray-800">{auth.currentUser?.email || 'Адміністратор'}</p>
+                            </div>
+                            <button
+                                onClick={handleLogout}
+                                className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2.5 px-5 rounded-xl transition-colors duration-200 shadow-sm hover:shadow-md text-base"
+                            >
+                                Вийти
+                            </button>
+                        </div>
+                    </div>
                 </header>
 
-                <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-                    <h2 className="text-xl font-semibold text-gray-700 mb-4 flex items-center">
-                        <UsersIcon className="h-6 w-6 mr-3 text-[#2C5282]" /> Усі користувачі
-                    </h2>
-                    {users.length === 0 ? (
-                        <p className="text-gray-500">Немає зареєстрованих користувачів (або не вдалося завантажити).</p>
+                <div className="bg-white p-7 rounded-2xl shadow-lg border border-gray-100">
+                    <h2 className="text-2xl font-semibold text-gray-700 mb-6">Керування користувачами</h2>
+                    {allUsersData.length === 0 && !loading ? (
+                        <p className="text-gray-500 text-base">Користувачів не знайдено.</p>
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-[#F0F4F8]">
+                                <thead className="bg-gray-50">
                                     <tr>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                                            ID користувача
-                                        </th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                                            Email (якщо є)
-                                        </th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                                            Дії
-                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID користувача</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ім'я</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Прізвище</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Електронна пошта</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Валюта</th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Дії</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
-                                    {users.map((user) => (
-                                        <tr key={user.id} className="hover:bg-[#EBF8FF] transition-colors duration-150">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                {user.id}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                                                {user.email || 'N/A'}
-                                            </td>
+                                    {allUsersData.map(user => (
+                                        <tr key={user.id}>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.id}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.firstName}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.lastName}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.email}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.currency}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                 <button
-                                                    onClick={() => handleDeleteUser(user)}
-                                                    className="text-red-600 hover:text-red-800 transition-colors duration-200 p-2 rounded-md hover:bg-red-50"
-                                                    title="Видалити користувача"
+                                                    onClick={() => openEditModal(user)}
+                                                    className="text-blue-600 hover:text-blue-800 p-2 rounded-md hover:bg-blue-50 transition-colors duration-200"
                                                 >
-                                                    <TrashIcon className="h-5 w-5" />
+                                                    <PencilIcon className="h-5 w-5 inline" />
                                                 </button>
+                                                {/* Заборонити адміністратору видаляти самого себе */}
+                                                {user.id !== ADMIN_USER_ID && (
+                                                    <button
+                                                        onClick={() => openDeleteConfirm(user)}
+                                                        className="text-red-600 hover:text-red-800 p-2 rounded-md hover:bg-red-50 transition-colors duration-200 ml-2"
+                                                    >
+                                                        <TrashIcon className="h-5 w-5 inline" />
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
@@ -169,30 +375,128 @@ function AdminPanel({ db, auth, userId }) {
                     )}
                 </div>
 
-                {/* Модальне вікно підтвердження видалення */}
-                {showDeleteConfirm && (
-                    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50">
-                        <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
-                            <div className="flex items-center text-red-500 mb-4">
-                                <ExclamationTriangleIcon className="h-6 w-6 mr-2" />
-                                <h3 className="text-lg font-bold text-gray-800">Підтвердити видалення</h3>
-                            </div>
-                            <p className="text-gray-700 mb-6">
-                                Ви впевнені, що хочете видалити користувача <span className="font-semibold">{userToDelete?.email || userToDelete?.id}</span>?
-                                Це дія незворотна і видалить їх профіль (але не дані аутентифікації Firebase).
+                {/* Edit User Modal */}
+                {isEditModalOpen && selectedUser && (
+                    <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50 p-4">
+                        <div className="bg-white p-7 rounded-2xl shadow-xl w-full max-w-lg relative">
+                            <button
+                                onClick={closeEditModal}
+                                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition-colors"
+                            >
+                                <XMarkIcon className="h-7 w-7" />
+                            </button>
+                            <h2 className="text-2xl font-bold text-gray-800 mb-5">Редагувати користувача: {getDisplayName(selectedUser)}</h2>
+                            <form onSubmit={handleEditUserSubmit} className="space-y-4">
+                                <label className="block">
+                                    <span className="text-gray-700 font-medium text-base">Ім'я:</span>
+                                    <input type="text" value={editFormData.firstName} onChange={(e) => setEditFormData({ ...editFormData, firstName: e.target.value })} className="mt-1 block w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" />
+                                </label>
+                                <label className="block">
+                                    <span className="text-gray-700 font-medium text-base">Прізвище:</span>
+                                    <input type="text" value={editFormData.lastName} onChange={(e) => setEditFormData({ ...editFormData, lastName: e.target.value })} className="mt-1 block w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" />
+                                </label>
+                                <label className="block">
+                                    <span className="text-gray-700 font-medium text-base">Електронна пошта (нередагована):</span>
+                                    <input type="email" value={editFormData.email} disabled className="mt-1 block w-full border border-gray-300 p-3 rounded-lg bg-gray-100 cursor-not-allowed text-base" />
+                                </label>
+                                <label className="block">
+                                    <span className="text-gray-700 font-medium text-base">Телефон:</span>
+                                    <input type="tel" value={editFormData.phone} onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })} className="mt-1 block w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" />
+                                </label>
+                                <label className="block">
+                                    <span className="text-gray-700 font-medium text-base">Адреса:</span>
+                                    <input type="text" value={editFormData.address} onChange={(e) => setEditFormData({ ...editFormData, address: e.target.value })} className="mt-1 block w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" />
+                                </label>
+                                <label className="block">
+                                    <span className="text-gray-700 font-medium text-base">Місто:</span>
+                                    <input type="text" value={editFormData.city} onChange={(e) => setEditFormData({ ...editFormData, city: e.target.value })} className="mt-1 block w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" />
+                                </label>
+                                <label className="block">
+                                    <span className="text-gray-700 font-medium text-base">Країна:</span>
+                                    <input type="text" value={editFormData.country} onChange={(e) => setEditFormData({ ...editFormData, country: e.target.value })} className="mt-1 block w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" />
+                                </label>
+                                <label className="block">
+                                    <span className="text-gray-700 font-medium text-base">Валюта:</span>
+                                    <select
+                                        value={editFormData.currency}
+                                        onChange={(e) => setEditFormData({ ...editFormData, currency: e.target.value })}
+                                        className="mt-1 block w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base bg-white"
+                                    >
+                                        {availableCurrencies.map((c) => (
+                                            <option key={c.code} value={c.code}>
+                                                {c.name} ({c.symbol})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                                {saveSuccess && (
+                                    <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg relative text-base" role="alert">
+                                        <InformationCircleIcon className="h-5 w-5 inline mr-2" />
+                                        <span className="block sm:inline">Зміни успішно збережено!</span>
+                                    </div>
+                                )}
+                                {error && (
+                                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative text-base" role="alert">
+                                        <ExclamationTriangleIcon className="h-5 w-5 inline mr-2" />
+                                        <span className="block sm:inline">{error.message}</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-end space-x-3 mt-6">
+                                    <button
+                                        type="submit"
+                                        className="bg-blue-600 text-white px-6 py-2.5 rounded-lg disabled:opacity-50 hover:bg-blue-700 transition-colors duration-200 text-base font-semibold"
+                                        disabled={isSaving}
+                                    >
+                                        {isSaving ? 'Зберігаємо...' : 'Зберегти зміни'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={closeEditModal}
+                                        className="bg-gray-200 text-gray-800 px-6 py-2.5 rounded-lg hover:bg-gray-300 transition-colors duration-200 text-base font-semibold"
+                                    >
+                                        Скасувати
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* Delete User Confirmation Modal */}
+                {isDeleteConfirmOpen && selectedUser && (
+                    <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50 p-4">
+                        <div className="bg-white p-7 rounded-2xl shadow-xl w-full max-w-lg relative">
+                            <button
+                                onClick={closeDeleteConfirm}
+                                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition-colors"
+                            >
+                                <XMarkIcon className="h-7 w-7" />
+                            </button>
+                            <h2 className="text-2xl font-bold text-gray-800 mb-5">Підтвердити видалення користувача</h2>
+                            <p className="text-gray-700 text-base mb-6">
+                                Ви впевнені, що хочете видалити користувача "<span className="font-semibold">{getDisplayName(selectedUser)}</span>"?
+                                Усі дані цього користувача (профіль, транзакції, бюджети, цілі) будуть остаточно видалені. Цю дію не можна скасувати.
                             </p>
-                            <div className="flex justify-end space-x-4">
+                            {error && (
+                                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative text-base mb-4" role="alert">
+                                    <ExclamationTriangleIcon className="h-5 w-5 inline mr-2" />
+                                    <span className="block sm:inline">{error.message}</span>
+                                </div>
+                            )}
+                            <div className="flex justify-end space-x-3 mt-6">
                                 <button
-                                    onClick={cancelDelete}
-                                    className="px-4 py-2 bg-[#E2E8F0] text-gray-800 rounded-lg hover:bg-[#CBD5E0] transition-colors duration-200"
+                                    onClick={confirmDeleteUser}
+                                    className="bg-red-600 text-white px-6 py-2.5 rounded-lg disabled:opacity-50 hover:bg-red-700 transition-colors duration-200 text-base font-semibold"
+                                    disabled={isSaving}
                                 >
-                                    Скасувати
+                                    {isSaving ? 'Видаляємо...' : 'Видалити'}
                                 </button>
                                 <button
-                                    onClick={confirmDelete}
-                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200"
+                                    type="button"
+                                    onClick={closeDeleteConfirm}
+                                    className="bg-gray-200 text-gray-800 px-6 py-2.5 rounded-lg hover:bg-gray-300 transition-colors duration-200 text-base font-semibold"
                                 >
-                                    Видалити
+                                    Скасувати
                                 </button>
                             </div>
                         </div>

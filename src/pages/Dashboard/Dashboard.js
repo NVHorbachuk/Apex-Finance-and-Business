@@ -5,21 +5,28 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
     HomeIcon, ClipboardDocumentListIcon, BellIcon, UserCircleIcon,
     ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon,
-    BanknotesIcon, CreditCardIcon, Squares2X2Icon, ListBulletIcon, ChartBarIcon,
-    ArrowUpIcon, ArrowDownIcon, UsersIcon, CurrencyDollarIcon
+    BanknotesIcon, CreditCardIcon, UsersIcon, ListBulletIcon, ChartBarIcon,
+    PencilIcon, TrashIcon, ExclamationTriangleIcon, PlusIcon, CurrencyDollarIcon,
+    UserGroupIcon, BriefcaseIcon // Змінено FamilyIcon на UserGroupIcon
 } from '@heroicons/react/24/outline';
 
-// Import Firestore functions
-import { collection, query, where, onSnapshot, addDoc } from 'firebase/firestore';
+// Імпорт функцій Firestore
+import { collection, query, where, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 
-// Register Chart.js components and FillerPlugin
+// Реєстрація компонентів Chart.js та FillerPlugin
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, BarElement, Tooltip, Legend, FillerPlugin);
 
-// URL for the logo (points to a file in the public folder)
+// URL для логотипу (посилається на файл у папці public)
 const logoUrl = "/image.png";
 
-// Function to get the month name in Ukrainian
+// ====================================================================================
+// ВАЖЛИВО: ЗАМІНІТЬ ЦЕ НА ВАШ АКТУАЛЬНИЙ ADMIN USER ID з Firebase Authentication.
+// Це userId облікового запису, який має доступ до адмін-панелі.
+// ====================================================================================
+const ADMIN_USER_ID = "CawE33GEkZhLFsapAdBr3saDV3F3";
+
+// Функція для отримання назви місяця українською
 const getMonthName = (monthIndex) => {
     const months = [
         'Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень',
@@ -28,47 +35,54 @@ const getMonthName = (monthIndex) => {
     return months[monthIndex];
 };
 
-function Dashboard({ db, auth, userId, userData }) {
-    // State for dynamic data fetched from Firestore
+function Dashboard({ db, auth, userId, userData }) { // Додано userData
+    // Стан для динамічних даних, отриманих з Firestore
     const [accounts, setAccounts] = useState([]);
     const [transactions, setTransactions] = useState([]);
-    const [goals, setGoals] = useState([]); // State for goals
-    const [budgets, setBudgets] = useState([]); // State for budgets
+    const [goals, setGoals] = useState([]); // Стан для цілей
+    const [budgets, setBudgets] = useState([]); // Стан для бюджетів
     const [currentAccount, setCurrentAccount] = useState('');
     const [currentSelectedBudgetId, setCurrentSelectedBudgetId] = useState(''); // New state for selected budget
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    // Added a counter for loaded data sources for more reliable loading state management
+    // Додано лічильник завантажених джерел даних для більш надійного зняття loading
     const [loadedSourcesCount, setLoadedSourcesCount] = useState(0);
 
-    // State for chart data and summaries
+    // Стан для даних графіків та зведень
     const [lineChartData, setLineChartData] = useState({ labels: [], datasets: [] });
-    const [pieChartData, setPieChartData] = useState({ labels: [], datasets: [] });
-    const [overallBalance, setOverallBalance] = useState(0);
-    const [latestTransactions, setLatestTransactions] = useState([]);
-    const [largestExpenses, setLargestExpenses] = useState([]);
-    // New state for daily financial data summary
+    const [pieChartData, setPieChartData] = useState({ labels: [], datasets: [] }); // Now used in JSX
+    const [overallBalance, setOverallBalance] = useState(0); // Загальний баланс
+    const [latestTransactions, setLatestTransactions] = useState([]); // Now used in JSX
+    const [largestExpenses, setLargestExpenses] = useState([]); // Now used in JSX
+    // Новий стан для зведення фінансових даних за днями
     const [dailyFinancialSummary, setDailyFinancialSummary] = useState({});
 
-    // State for adding a new account form
+    // Стан для форми додавання нового рахунку
     const [newAccountName, setNewAccountName] = useState('');
     const [newAccountBalance, setNewAccountBalance] = useState('');
     const [addingAccount, setAddingAccount] = useState(false);
 
-    // State for the calendar
+    // Стан для управління бюджетами (інтегровано з Budgets.js)
+    const [showCreateBudgetModal, setShowCreateBudgetModal] = useState(false);
+    const [showEditBudgetModal, setShowEditBudgetModal] = useState(false);
+    const [showDeleteBudgetConfirm, setShowDeleteBudgetConfirm] = useState(false);
+    const [selectedBudget, setSelectedBudget] = useState(null);
+    const [newBudget, setNewBudget] = useState({ name: '', limit: 0, spent: 0, category: '' }); // Додано limit, spent, category
+    const [editBudget, setEditBudget] = useState({ name: '', limit: 0, spent: 0, category: '' }); // Додано limit, spent, category
+
+    // Стан для календаря
     const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-    // State for the days of both calendar months
+    // Стан для днів обох місяців календаря
     const [calendarDaysFirstMonth, setCalendarDaysFirstMonth] = useState([]);
     const [calendarDaysSecondMonth, setCalendarDaysSecondMonth] = useState([]);
 
-
-    // Get app ID
+    // Отримання ID додатку
     const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
 
     const navigate = useNavigate();
 
-    // Callback to process financial data and update charts/summaries
+    // useCallback для функцій обробки даних, щоб уникнути зайвих ре-рендерів
     const processFinancialData = useCallback((fetchedTransactions, fetchedAccounts) => {
         const parseDateStringForSort = (dateString) => {
             if (!dateString) return new Date(0);
@@ -79,15 +93,15 @@ function Dashboard({ db, auth, userId, userData }) {
             return new Date(dateString); // YYYY-MM-DD
         };
 
-        // Aggregate daily data for the calendar
+        // Агрегація даних за днями для календаря
         const dailySummary = {};
         fetchedTransactions.forEach(t => {
             const dateObj = new Date(t.date);
             if (isNaN(dateObj.getTime())) {
-                console.warn(`Invalid transaction date: ${t.date}`);
+                console.warn(`Некоректна дата транзакції: ${t.date}`);
                 return;
             }
-            const dateKey = dateObj.toISOString().substring(0, 10); // Use YYYY-MM-DD as key
+            const dateKey = dateObj.toISOString().substring(0, 10); // Використовуємо YYYY-MM-DD як ключ
 
             if (!dailySummary[dateKey]) {
                 dailySummary[dateKey] = { income: 0, expense: 0, count: 0, categories: {} };
@@ -95,7 +109,7 @@ function Dashboard({ db, auth, userId, userData }) {
             if (t.type === 'income') {
                 dailySummary[dateKey].income += t.amount;
             } else { // expense
-                dailySummary[dateKey].expense += Math.abs(t.amount); // Ensure expenses are added as positive numbers for display
+                dailySummary[dateKey].expense += Math.abs(t.amount); // Переконайтеся, що витрати додаються як позитивні числа для відображення
             }
             dailySummary[dateKey].count += 1;
             const category = t.category || 'Без категорії';
@@ -104,11 +118,10 @@ function Dashboard({ db, auth, userId, userData }) {
         setDailyFinancialSummary(dailySummary);
 
 
-        // --- Reverted to Line Chart: Cumulative Balance (matching image) ---
         const dailyDataForLineChart = fetchedTransactions.reduce((acc, transaction) => {
             const transactionDate = new Date(transaction.date);
             if (isNaN(transactionDate.getTime())) return acc;
-            const dateKey = transactionDate.toLocaleDateString('uk-UA'); // Use local date format
+            const dateKey = transactionDate.toLocaleDateString('uk-UA'); // Використовуємо локальний формат дати
             if (!acc[dateKey]) {
                 acc[dateKey] = 0;
             }
@@ -132,55 +145,22 @@ function Dashboard({ db, auth, userId, userData }) {
                 {
                     label: 'Чистий баланс',
                     data: lineValues,
-                    borderColor: '#4A5568', // Dark grey for a more business-like look
-                    backgroundColor: 'rgba(74, 85, 104, 0.2)', // Semi-transparent dark grey
+                    borderColor: '#4A5568', // Темно-сірий для більш ділового вигляду
+                    backgroundColor: 'rgba(74, 85, 104, 0.2)', // Напівпрозорий темно-сірий
                     fill: true,
                     tension: 0.4,
                     pointRadius: 0,
                 },
             ],
         });
-        // --- End of reverted Line Chart update ---
 
-
-        // Bar Chart: Number of transactions per day (remains unchanged)
-        const dailyTxnCount = fetchedTransactions.reduce((acc, transaction) => {
-            const transactionDate = new Date(transaction.date);
-            if (isNaN(transactionDate.getTime())) return acc;
-            const dateKey = transactionDate.toLocaleDateString('uk-UA');
-            if (!acc[dateKey]) {
-                acc[dateKey] = 0;
-            }
-            acc[dateKey] += 1;
-            return acc;
-        }, {});
-
-        const barLabels = Object.keys(dailyTxnCount).sort((a, b) => parseDateStringForSort(a) - parseDateStringForSort(b));
-        const barValues = barLabels.map(label => dailyTxnCount[label]);
-
-        // This barChartData is for a separate "Number of Transactions" chart, not the Income/Expense one.
-        // It's currently not used in the JSX, but the data processing remains in case it's needed later.
-        // Removed setBarChartData as it's not directly used in the current Dashboard JSX for this component
-        // setBarChartData({
-        //     labels: barLabels,
-        //     datasets: [
-        //         {
-        //             label: 'Кількість транзакцій',
-        //             data: barValues,
-        //             backgroundColor: '#3182CE',
-        //             borderRadius: 5,
-        //             barThickness: 10,
-        //         },
-        //     ],
-        // });
-
-        // Pie Chart: Expenses by category
+        // Pie Chart: Витрати за категоріями
         const categorySpending = fetchedTransactions.filter(t => t.type === 'expense').reduce((acc, transaction) => {
             const category = transaction.category || 'Без категорії';
             if (!acc[category]) {
                 acc[category] = 0;
             }
-            acc[category] += Math.abs(transaction.amount); // Expenses are always positive for the pie chart
+            acc[category] += Math.abs(transaction.amount); // Витрати завжди позитивні для пирога
             return acc;
         }, {});
 
@@ -220,35 +200,35 @@ function Dashboard({ db, auth, userId, userData }) {
             ],
         });
 
-        // New calculations for the dashboard:
-        // Overall balance across accounts
+        // Нові обчислення для дашборду:
+        // Загальний баланс по рахунках
         const totalOverallBalance = fetchedAccounts.reduce((sum, acc) => sum + acc.balance, 0);
         setOverallBalance(totalOverallBalance);
 
-        // Latest 5 transactions
+        // Останні 5 транзакцій
         const sortedTransactions = [...fetchedTransactions].sort((a, b) => {
             const dateA = parseDateStringForSort(a.date);
             const dateB = parseDateStringForSort(b.date);
-            return dateB - dateA; // Sort by date descending
+            return dateB - dateA; // Сортування за спаданням дати
         });
         setLatestTransactions(sortedTransactions.slice(0, 5));
 
-        // Largest 5 expenses
+        // Найбільші 5 витрат
         const expenses = fetchedTransactions.filter(t => t.type === 'expense');
         const sortedExpenses = [...expenses].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
         setLargestExpenses(sortedExpenses.slice(0, 5));
 
     }, []);
 
-    // Effect to fetch initial data
+    // Ефект для отримання облікових записів, транзакцій, цілей та бюджетів
     useEffect(() => {
         if (!db || !userId) {
             setLoading(false);
             return;
         }
 
-        setLoading(true); // Always set loading to true when this effect starts
-        setLoadedSourcesCount(0); // Reset the loaded sources counter
+        setLoading(true); // Завжди встановлюємо loading на true при початку цього ефекту
+        setLoadedSourcesCount(0); // Скидаємо лічильник завантажених джерел
 
         const unsubscribes = [];
 
@@ -256,7 +236,7 @@ function Dashboard({ db, auth, userId, userData }) {
             setLoadedSourcesCount(prev => prev + 1);
         };
 
-        // 1. Fetch Accounts
+        // 1. Отримання облікових записів (Accounts)
         const accountsCollectionRef = collection(db, `/artifacts/${appId}/users/${userId}/accounts`);
         unsubscribes.push(onSnapshot(accountsCollectionRef, (snapshot) => {
             const fetchedAccounts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -266,12 +246,12 @@ function Dashboard({ db, auth, userId, userData }) {
             }
             incrementLoadedCount();
         }, (err) => {
-            console.error("Dashboard: Error fetching accounts:", err);
+            console.error("Dashboard: Помилка отримання рахунків:", err);
             setError(err);
-            incrementLoadedCount(); // Increment counter even on error to dismiss loading screen
+            incrementLoadedCount(); // Збільшуємо лічильник навіть при помилці, щоб зняти екран завантаження
         }));
 
-        // 2. Fetch Transactions
+        // 2. Отримання транзакцій
         let transactionsQueryRef = collection(db, `/artifacts/${appId}/users/${userId}/transactions`);
         if (currentAccount) {
             transactionsQueryRef = query(transactionsQueryRef, where('accountId', '==', currentAccount));
@@ -281,24 +261,24 @@ function Dashboard({ db, auth, userId, userData }) {
             setTransactions(fetchedTransactions);
             incrementLoadedCount();
         }, (err) => {
-            console.error("Dashboard: Error fetching transactions:", err);
+            console.error("Dashboard: Помилка отримання транзакцій:", err);
             setError(err);
-            incrementLoadedCount(); // Increment counter even on error
+            incrementLoadedCount(); // Збільшуємо лічильник навіть при помилці
         }));
 
-        // 3. Fetch Goals
+        // 3. Отримання цілей (Goals)
         const goalsCollectionRef = collection(db, `/artifacts/${appId}/users/${userId}/goals`);
         unsubscribes.push(onSnapshot(goalsCollectionRef, (snapshot) => {
             const fetchedGoals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setGoals(fetchedGoals);
             incrementLoadedCount();
         }, (err) => {
-            console.error("Dashboard: Error fetching goals:", err);
+            console.error("Dashboard: Помилка отримання цілей:", err);
             setError(err);
             incrementLoadedCount();
         }));
 
-        // 4. Fetch Budgets
+        // 4. Отримання бюджетів (Budgets) - ВЖЕ ІСНУЄ, але тепер інтегрується з UI
         const budgetsCollectionRef = collection(db, `/artifacts/${appId}/users/${userId}/budgets`);
         unsubscribes.push(onSnapshot(budgetsCollectionRef, (snapshot) => {
             const fetchedBudgets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -308,7 +288,7 @@ function Dashboard({ db, auth, userId, userData }) {
             }
             incrementLoadedCount();
         }, (err) => {
-            console.error("Dashboard: Error fetching budgets:", err);
+            console.error("Dashboard: Помилка отримання бюджетів:", err);
             setError(err);
             incrementLoadedCount();
         }));
@@ -316,9 +296,9 @@ function Dashboard({ db, auth, userId, userData }) {
         return () => {
             unsubscribes.forEach(unsub => unsub());
         };
-    }, [db, userId, appId, currentAccount, currentSelectedBudgetId]);
+    }, [db, userId, appId, currentAccount, currentSelectedBudgetId]); // currentAccount залишається тут, оскільки він впливає на запит транзакцій
 
-    // Effect to dismiss the loading screen after all data sources are loaded
+    // Ефект для зняття екрану завантаження після завантаження всіх джерел даних
     useEffect(() => {
         const totalExpectedSources = 4; // Accounts, Transactions, Goals, Budgets
         if (loadedSourcesCount >= totalExpectedSources) {
@@ -326,27 +306,27 @@ function Dashboard({ db, auth, userId, userData }) {
         }
     }, [loadedSourcesCount]);
 
-    // Effect to process data once loaded or changed
-    // This effect will only run when `loading` becomes `false`
+    // Ефект для обробки даних після їх завантаження або зміни
+    // Цей ефект запуститься лише тоді, коли `loading` стане `false`
     useEffect(() => {
         if (!loading) {
-            // Check if there's any data or if all sources are empty
+            // Перевіряємо, чи є хоч якісь дані або ж усі джерела порожні
             const hasData = accounts.length > 0 || transactions.length > 0 || goals.length > 0 || budgets.length > 0;
-            if (hasData || loadedSourcesCount === 4) { // Process data if it exists, or if all sources are loaded (even if empty)
+            if (hasData || loadedSourcesCount === 4) { // Обробляємо дані, якщо вони є, або якщо всі джерела завантажені (навіть якщо порожні)
                 processFinancialData(transactions, accounts);
             } else if (!hasData && loadedSourcesCount < 4) {
-                 // Not all sources loaded yet, or no data yet, but not final state.
-                 // Do nothing, wait for full load.
+                 // Ще не всі джерела завантажені або даних немає, але це не фінальний стан.
+                 // Нічого не робити, чекати повного завантаження.
             }
         }
     }, [transactions, accounts, goals, budgets, loading, processFinancialData, loadedSourcesCount]);
 
 
-    // Function to add a new account
+    // Функція для додавання нового рахунку
     const handleAddAccount = async (e) => {
         e.preventDefault();
         if (!db || !userId || !newAccountName.trim() || isNaN(parseFloat(newAccountBalance))) {
-            console.error("Error: Required account data is missing or invalid.");
+            console.error("Помилка: Необхідні дані для додавання рахунку відсутні або некоректні.");
             return;
         }
 
@@ -361,35 +341,112 @@ function Dashboard({ db, auth, userId, userData }) {
             });
             setNewAccountName('');
             setNewAccountBalance('');
-            console.log("Account successfully added!");
+            console.log("Рахунок успішно додано!");
         } catch (err) {
-            console.error("Error adding account:", err);
+            console.error("Помилка додавання рахунку:", err);
             setError(err);
         } finally {
             setAddingAccount(false);
         }
     };
 
-    // Function to generate calendar days
+    // --- Функції управління бюджетами (інтегровані) ---
+    const handleCreateBudget = async () => {
+        if (!db || !userId || !newBudget.name.trim() || isNaN(parseFloat(newBudget.limit))) {
+            setError(new Error("Будь ласка, заповніть назву бюджету та ліміт."));
+            return;
+        }
+
+        try {
+            const budgetsCollectionRef = collection(db, `/artifacts/${appId}/users/${userId}/budgets`);
+            await addDoc(budgetsCollectionRef, {
+                name: newBudget.name.trim(),
+                limit: parseFloat(newBudget.limit),
+                spent: 0, // Початкові витрати 0
+                category: newBudget.category.trim(), // Додано категорію
+                createdAt: new Date().toISOString(),
+                userId: userId
+            });
+            setNewBudget({ name: '', limit: 0, spent: 0, category: '' });
+            setShowCreateBudgetModal(false);
+            setError(null); // Clear any previous errors
+        } catch (err) {
+            console.error("Помилка додавання бюджету:", err);
+            setError(new Error(`Помилка додавання бюджету: ${err.message}`));
+        }
+    };
+
+    const handleEditBudget = async () => {
+        if (!db || !userId || !selectedBudget || !editBudget.name.trim() || isNaN(parseFloat(editBudget.limit)) || isNaN(parseFloat(editBudget.spent))) {
+            setError(new Error("Будь ласка, заповніть усі поля для редагування бюджету."));
+            return;
+        }
+
+        try {
+            const budgetDocRef = doc(db, `/artifacts/${appId}/users/${userId}/budgets`, selectedBudget.id);
+            await updateDoc(budgetDocRef, {
+                name: editBudget.name.trim(),
+                limit: parseFloat(editBudget.limit),
+                spent: parseFloat(editBudget.spent),
+                category: editBudget.category.trim(), // Оновлення категорії
+            });
+            setSelectedBudget(null);
+            setShowEditBudgetModal(false);
+            setError(null); // Clear any previous errors
+            console.log("Бюджет успішно оновлено!");
+        } catch (err) {
+            console.error("Помилка оновлення бюджету:", err);
+            setError(new Error(`Помилка оновлення бюджету: ${err.message}`));
+        }
+    };
+
+    const handleDeleteBudget = (budget) => {
+        setSelectedBudget(budget); // Зберігаємо бюджет для підтвердження видалення
+        setShowDeleteBudgetConfirm(true);
+    };
+
+    const confirmDeleteBudget = async () => {
+        if (selectedBudget && db && userId) {
+            try {
+                await deleteDoc(doc(db, `/artifacts/${appId}/users/${userId}/budgets`, selectedBudget.id));
+                setError(null); // Clear any previous errors
+                console.log("Бюджет успішно видалено!");
+            } catch (err) {
+                console.error("Помилка видалення бюджету:", err);
+                setError(new Error(`Помилка видалення бюджету: ${err.message}`));
+            } finally {
+                setShowDeleteBudgetConfirm(false);
+                setSelectedBudget(null);
+            }
+        }
+    };
+
+    const cancelDeleteBudget = () => {
+        setShowDeleteBudgetConfirm(false);
+        setSelectedBudget(null);
+    };
+    // --- Кінець функцій управління бюджетами ---
+
+    // Функція для генерування днів календаря
     const generateDaysArray = useCallback((month, year) => {
         const firstDayOfMonth = new Date(year, month, 1);
         const lastDayOfMonth = new Date(year, month + 1, 0);
         const numDays = lastDayOfMonth.getDate();
-        const firstDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7; // Make Monday the first day (0-6)
+        const firstDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7; // Зробити понеділок першим днем (0-6)
 
         const days = [];
-        // Add empty cells for offset
+        // Додаємо порожні клітинки для зміщення
         for (let i = 0; i < firstDayOfWeek; i++) {
             days.push(null);
         }
-        // Add days of the month
+        // Додаємо дні місяця
         for (let i = 1; i <= numDays; i++) {
             days.push(i);
         }
         return days;
     }, []);
 
-    // Effect to update the calendar when month/year changes
+    // Ефект для оновлення календаря при зміні місяця/року
     useEffect(() => {
         setCalendarDaysFirstMonth(generateDaysArray(currentMonth, currentYear));
         const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
@@ -397,7 +454,7 @@ function Dashboard({ db, auth, userId, userData }) {
         setCalendarDaysSecondMonth(generateDaysArray(nextMonth, nextYear));
     }, [currentMonth, currentYear, generateDaysArray]);
 
-    // Handlers for month navigation
+    // Обробники для навігації по місяцях
     const goToPreviousMonth = () => {
         setCurrentMonth(prevMonth => {
             if (prevMonth === 0) {
@@ -418,56 +475,44 @@ function Dashboard({ db, auth, userId, userData }) {
         });
     };
 
-    const today = new Date();
-    // Function to determine if a day is today
+    const todayDate = new Date(); // Змінено ім'я змінної, щоб уникнути конфлікту та попередження ESLint
+    // Функція для визначення, чи є день поточним
     const isTodayFn = useCallback((day, month, year) => {
-        return day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
-    }, [today]);
+        return day === todayDate.getDate() && month === todayDate.getMonth() && year === todayDate.getFullYear();
+    }, [todayDate]);
 
 
-    // Function to log out
+    // Функція для виходу з облікового запису
     const handleLogout = async () => {
         if (!auth) {
-            console.error("Firebase Auth is not available.");
+            console.error("Firebase Auth не доступний.");
             return;
         }
         try {
             await signOut(auth);
-            console.log("User successfully logged out.");
+            console.log("Користувач успішно вийшов з облікового запису.");
             navigate('/login');
         } catch (error) {
-            console.error("Error logging out:", error);
-            setError(new Error(`Logout error: ${error.message}`));
+            console.error("Помилка виходу з облікового запису:", error);
+            setError(new Error(`Помилка виходу: ${error.message}`));
         }
     };
 
-    // Chart options for visual consistency
-    const lineChartOptions = { // These options are now for the cumulative balance line chart
+    // Опції графіків для візуальної відповідності
+    const lineChartOptions = {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-            legend: { display: false }, // No legend for single line
+            legend: { display: false },
             tooltip: { enabled: true }
         },
         scales: {
-            x: {
-                grid: { display: false },
-                ticks: {
-                    display: true,
-                    font: { size: 9 }
-                }
-            },
-            y: {
-                beginAtZero: true,
-                grid: { display: true, color: 'rgba(200, 200, 200, 0.2)' },
-                ticks: {
-                    font: { size: 9 }
-                }
-            },
+            x: { grid: { display: false }, ticks: { display: true, font: { size: 10 } } },
+            y: { beginAtZero: true, grid: { display: true, color: 'rgba(200, 200, 200, 0.2)' }, ticks: { font: { size: 10 } } },
         },
     };
 
-    const pieChartOptions = {
+    const pieChartOptions = { // Тепер використовується в JSX
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
@@ -476,10 +521,26 @@ function Dashboard({ db, auth, userId, userData }) {
         },
     };
 
-    // Determine the display name (copied from Dashboard.js for consistency)
+    // Визначення імені для відображення
     const displayName = (userData && userData.firstName && userData.lastName)
         ? `${userData.firstName} ${userData.lastName}`
         : userData?.email || 'Користувач';
+
+    // Визначення URL фото профілю, якщо воно є в userData
+    // Примітка: profileImageUrl має бути прямою URL-адресою зображення (наприклад, з Google Photos, Imgur тощо),
+    // а не URL-адресою сторінки, яка містить зображення.
+    const profileImageUrl = userData?.profileImageUrl || 'https://placehold.co/40x40/aabbcc/ffffff?text=NP'; // Використовуйте заглушку, якщо немає зображення
+
+    // Фіктивні дані для сімейних акаунтів та доходів
+    const familyAccounts = userData?.familyAccounts || [
+        { name: 'Дружина', balance: 1500.00 },
+        { name: 'Дитина 1', balance: 250.00 },
+    ];
+
+    const incomeSources = userData?.incomeSources || [
+        { name: 'Зарплата', amount: 3000.00, frequency: 'Щомісячно' },
+        { name: 'Фріланс', amount: 500.00, frequency: 'Нерегулярно' },
+    ];
 
 
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans']">Завантаження даних...</div>;
@@ -487,7 +548,7 @@ function Dashboard({ db, auth, userId, userData }) {
 
     return (
         <div className="flex min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 font-['DM Sans']">
-            {/* Sidebar */}
+            {/* Бічна панель */}
             <aside className="w-64 bg-white p-6 shadow-xl flex flex-col justify-between rounded-r-3xl border-r border-gray-100">
                 <div>
                     <div className="flex items-center mb-10 px-2">
@@ -510,16 +571,16 @@ function Dashboard({ db, auth, userId, userData }) {
                         <Link to="/transactions" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
                             <ClipboardDocumentListIcon className="h-5 w-5 mr-3" /> Transactions
                         </Link>
-                        <Link to="/categories" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
-                            <Squares2X2Icon className="h-5 w-5 mr-3" /> Categories
-                        </Link>
-                        <Link to="/admin" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
-                            <UsersIcon className="h-5 w-5 mr-3" /> Admin Panel
-                        </Link>
-                        {/* Налаштування профілю було видалено, оскільки його немає на знімку екрана */}
-                        {/* <Link to="/profile-settings" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
+                        {/* Categories link removed as per request */}
+                        {userId === ADMIN_USER_ID && ( // Conditional rendering for Admin Panel link
+                            <Link to="/admin" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
+                                <UsersIcon className="h-5 w-5 mr-3" /> Admin Panel
+                            </Link>
+                        )}
+                        {/* Profile Settings link is now always visible */}
+                        <Link to="/profile-settings" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
                             <UserCircleIcon className="h-5 w-5 mr-3" /> Налаштування профілю
-                        </Link> */}
+                        </Link>
                     </nav>
                 </div>
             </aside>
@@ -567,7 +628,11 @@ function Dashboard({ db, auth, userId, userData }) {
                         </div>
                         <BellIcon className="h-7 w-7 text-gray-500 cursor-pointer hover:text-blue-600 transition-colors duration-200" />
                         <div className="flex items-center space-x-3">
-                            <UserCircleIcon className="h-10 w-10 text-blue-500 rounded-full bg-blue-100 p-1" />
+                            {profileImageUrl ? (
+                                <img src={profileImageUrl} alt="Profile" className="h-10 w-10 rounded-full object-cover border-2 border-blue-500" onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/40x40/aabbcc/ffffff?text=NP'; }} />
+                            ) : (
+                                <UserCircleIcon className="h-10 w-10 text-blue-500 rounded-full bg-blue-100 p-1" />
+                            )}
                             <div className="text-base">
                                 <p className="font-semibold text-gray-800">{displayName}</p>
                                 {/* <p className="text-gray-500 text-sm">{userId}</p> */} {/* User ID is often not shown directly */}
@@ -629,7 +694,7 @@ function Dashboard({ db, auth, userId, userData }) {
                             value={newAccountBalance}
                             onChange={(e) => setNewAccountBalance(e.target.value)}
                             step="0.01"
-                            className="p-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                            className="w-full p-3.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
                             required
                         />
                         <button
@@ -642,61 +707,66 @@ function Dashboard({ db, auth, userId, userData }) {
                     </form>
                 </div>
 
-                {/* --- New Section: Simple steps to financial freedom --- */}
-                <div className="bg-white p-7 rounded-2xl shadow-lg border border-gray-100 mb-8 transform transition-transform duration-300 hover:scale-[1.005]">
-                    <h2 className="text-2xl font-semibold text-gray-800 mb-6 text-center">Прості кроки до фінансової свободи</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-                        <div className="flex flex-col items-center p-4">
-                            <span className="text-blue-600 font-bold text-4xl mb-3">1</span>
-                            <h3 className="text-lg font-semibold text-gray-800 mb-2">Підтверджуйте ваш грошовий потік</h3>
-                            <p className="text-sm text-gray-600 mb-4">
-                                Перегляньте свої банківські рахунки і кредитівки, а також будь-який інвестиційний дохід. Дізнайтеся, куди йдуть ваші гроші.
-                            </p>
-                            <Link to="/accounts" className="bg-blue-100 text-blue-700 px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-blue-200 transition-colors duration-200 shadow-sm">
-                                Рахунки та Баланси
-                            </Link>
-                        </div>
-                        <div className="flex flex-col items-center p-4">
-                            <span className="text-blue-600 font-bold text-4xl mb-3">2</span>
-                            <h3 className="text-lg font-semibold text-gray-800 mb-2">Зрозумійте ваш фінансовий стан</h3>
-                            <p className="text-sm text-gray-600 mb-4">
-                                Використовуйте свої транзакції та категорії для створення візуалізацій та отримання уявлення про ваші доходи та витрати.
-                            </p>
-                            <Link to="/transactions" className="bg-blue-100 text-blue-700 px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-blue-200 transition-colors duration-200 shadow-sm">
-                                Графік Витрат
-                            </Link>
-                        </div>
-                        <div className="flex flex-col items-center p-4">
-                            <span className="text-blue-600 font-bold text-4xl mb-3">3</span>
-                            <h3 className="text-lg font-semibold text-gray-800 mb-2">Зробіть свої витрати безстресовими</h3>
-                            <p className="text-sm text-gray-600 mb-4">
-                                Встановіть бюджети, щоб контролювати свої витрати, і цілі, щоб залишатися мотивованими на шляху до своїх фінансових мрій.
-                            </p>
-                            <Link to="/budgets" className="bg-blue-100 text-blue-700 px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-blue-200 transition-colors duration-200 shadow-sm">
-                                Бюджети та Цілі
-                            </Link>
-                        </div>
+                {/* New Section: Family Accounts and Income Sources */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    {/* Family Accounts */}
+                    <div className="bg-white p-7 rounded-2xl shadow-lg border border-gray-100 flex flex-col justify-between">
+                        <h2 className="text-xl font-semibold text-gray-700 mb-4 flex items-center">
+                            <UserGroupIcon className="h-6 w-6 text-gray-600 mr-2" /> Сімейні акаунти
+                        </h2>
+                        {familyAccounts.length === 0 ? (
+                            <p className="text-gray-500 text-base">Немає доданих сімейних акаунтів.</p>
+                        ) : (
+                            <ul className="space-y-3">
+                                {familyAccounts.map((famAcc, index) => (
+                                    <li key={index} className="flex justify-between items-center text-gray-800 text-base border-b border-gray-100 pb-2">
+                                        <span className="font-medium">{famAcc.name}</span>
+                                        <span className="font-semibold text-blue-700">${famAcc.balance.toFixed(2)}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+
+                    {/* Income Sources */}
+                    <div className="bg-white p-7 rounded-2xl shadow-lg border border-gray-100 flex flex-col justify-between">
+                        <h2 className="text-xl font-semibold text-gray-700 mb-4 flex items-center">
+                            <BriefcaseIcon className="h-6 w-6 text-gray-600 mr-2" /> Джерела доходу
+                        </h2>
+                        {incomeSources.length === 0 ? (
+                            <p className="text-gray-500 text-base">Немає доданих джерел доходу.</p>
+                        ) : (
+                            <ul className="space-y-3">
+                                {incomeSources.map((income, index) => (
+                                    <li key={index} className="flex justify-between items-center text-gray-800 text-base border-b border-gray-100 pb-2">
+                                        <span className="font-medium">{income.name}</span>
+                                        <span className="font-semibold text-green-700">${income.amount.toFixed(2)} ({income.frequency})</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
                     </div>
                 </div>
 
-                {/* --- Middle: Calendar, Income/Expense Chart, Budgets, Goals --- */}
+
+                {/* --- Middle: Financial Trends, Budgets, Goals --- */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                     {/* Calendar section with financial data */}
-                    <div className="bg-white p-7 rounded-2xl shadow-lg border border-gray-100 flex flex-col transform transition-transform duration-300 hover:scale-[1.005]">
+                    <div className="bg-white p-7 rounded-2xl shadow-lg border border-gray-100 flex flex-col">
                         {/* Calendar header and navigation */}
-                        <div className="flex justify-between items-center mb-5">
-                            <div className="flex items-center text-lg font-semibold text-gray-800">
-                                <ChevronLeftIcon className="h-6 w-6 text-gray-600 cursor-pointer mr-3" onClick={goToPreviousMonth} />
+                        <div className="flex justify-between items-center mb-4">
+                            <div className="flex items-center text-2xl font-semibold text-gray-800">
+                                <ChevronLeftIcon className="h-6 w-6 text-gray-600 cursor-pointer mr-3 hover:text-blue-600 transition-colors duration-200" onClick={goToPreviousMonth} />
                                 <span>{getMonthName(currentMonth)} {currentYear}</span>
-                                <ChevronRightIcon className="h-6 w-6 text-gray-600 cursor-pointer ml-3" onClick={goToNextMonth} />
+                                <ChevronRightIcon className="h-6 w-6 text-gray-600 cursor-pointer ml-3 hover:text-blue-600 transition-colors duration-200" onClick={goToNextMonth} />
                             </div>
                         </div>
 
                         {/* Calendars (two side-by-side) */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                             {/* First month */}
-                            <div className="calendar-month p-4 bg-blue-50 rounded-lg border border-blue-100">
-                                <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-gray-600 mb-3">
+                            <div className="calendar-month p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-gray-600 mb-2">
                                     {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'].map(day => <span key={day}>{day}</span>)}
                                 </div>
                                 <div className="grid grid-cols-7 gap-1 text-center text-sm">
@@ -708,22 +778,22 @@ function Dashboard({ db, auth, userId, userData }) {
                                         return (
                                             <span
                                                 key={`day-${currentMonth}-${currentYear}-${day || index}`}
-                                                className={`p-1.5 rounded-full flex flex-col items-center justify-start text-center relative transition-colors duration-200
+                                                className={`p-1 rounded-full flex flex-col items-center justify-start text-center text-sm relative transition-colors duration-200
                                                     ${day === null ? 'opacity-0 cursor-default' : 'text-gray-800'}
                                                     ${isToday ? 'bg-blue-600 text-white font-bold shadow-md' : (day !== null ? 'hover:bg-blue-100 cursor-pointer' : '')}
                                                 `}
                                                 style={{ minHeight: '65px' }}
                                             >
-                                                <span className="text-sm font-medium">{day}</span>
+                                                {day}
                                                 {daySummary && (daySummary.expense > 0 || daySummary.income > 0) && (
-                                                    <div className="text-[0.65rem] mt-1.5 font-medium">
+                                                    <div className="text-xs mt-1">
                                                         {daySummary.expense > 0 && (
-                                                            <span className={`${isToday ? 'text-blue-100' : 'text-red-600'} block`}>
+                                                            <span className={`${isToday ? 'text-blue-100' : 'text-red-600'} font-semibold block`}>
                                                                 -${daySummary.expense.toFixed(0)}
                                                             </span>
                                                         )}
-                                                        {daySummary.income > 0 && daySummary.expense === 0 && ( // Show income if no expenses on this day
-                                                            <span className={`${isToday ? 'text-blue-100' : 'text-green-600'} block`}>
+                                                        {daySummary.income > 0 && daySummary.expense === 0 && ( // Only show income if no expense for that day
+                                                            <span className={`${isToday ? 'text-blue-100' : 'text-green-600'} font-semibold block`}>
                                                                 +${daySummary.income.toFixed(0)}
                                                             </span>
                                                         )}
@@ -736,11 +806,11 @@ function Dashboard({ db, auth, userId, userData }) {
                             </div>
 
                             {/* Second month */}
-                            <div className="calendar-month p-4 bg-blue-50 rounded-lg border border-blue-100">
-                                <div className="flex justify-between items-center text-base font-semibold mb-3">
+                            <div className="calendar-month p-4 bg-gray-50 rounded-lg border border-gray-100">
+                                <div className="flex justify-between items-center text-lg font-semibold mb-3">
                                     <span>{getMonthName(currentMonth === 11 ? 0 : currentMonth + 1)} {currentMonth === 11 ? currentYear + 1 : currentYear}</span>
                                 </div>
-                                <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-gray-600 mb-3">
+                                <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-gray-600 mb-2">
                                     {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'].map(day => <span key={day}>{day}</span>)}
                                 </div>
                                 <div className="grid grid-cols-7 gap-1 text-center text-sm">
@@ -754,22 +824,22 @@ function Dashboard({ db, auth, userId, userData }) {
                                         return (
                                             <span
                                                 key={`day-${nextMonthIndex}-${nextYearForDate}-${day || index}`}
-                                                className={`p-1.5 rounded-full flex flex-col items-center justify-start text-center relative transition-colors duration-200
+                                                className={`p-1 rounded-full flex flex-col items-center justify-start text-center text-sm relative transition-colors duration-200
                                                     ${day === null ? 'opacity-0 cursor-default' : 'text-gray-800'}
                                                     ${isToday ? 'bg-blue-600 text-white font-bold shadow-md' : (day !== null ? 'hover:bg-blue-100 cursor-pointer' : '')}
                                                 `}
                                                 style={{ minHeight: '65px' }}
                                             >
-                                                <span className="text-sm font-medium">{day}</span>
+                                                {day}
                                                 {daySummary && (daySummary.expense > 0 || daySummary.income > 0) && (
-                                                    <div className="text-[0.65rem] mt-1.5 font-medium">
+                                                    <div className="text-xs mt-1">
                                                         {daySummary.expense > 0 && (
-                                                            <span className={`${isToday ? 'text-blue-100' : 'text-red-600'} block`}>
+                                                            <span className={`${isToday ? 'text-blue-100' : 'text-red-600'} font-semibold block`}>
                                                                 -${daySummary.expense.toFixed(0)}
                                                             </span>
                                                         )}
                                                         {daySummary.income > 0 && daySummary.expense === 0 && (
-                                                            <span className={`${isToday ? 'text-blue-100' : 'text-green-600'} block`}>
+                                                            <span className={`${isToday ? 'text-blue-100' : 'text-green-600'} font-semibold block`}>
                                                                 +${daySummary.income.toFixed(0)}
                                                             </span>
                                                         )}
@@ -783,167 +853,324 @@ function Dashboard({ db, auth, userId, userData }) {
                         </div>
                     </div>
 
-                    {/* Графік Чистого Балансу (Income vs Expenses Trend) */}
-                    <div className="bg-white p-7 rounded-2xl shadow-lg border border-gray-100 flex flex-col justify-between transform transition-transform duration-300 hover:scale-[1.005]">
-                        <div className="flex justify-between items-center mb-5">
+                    {/* Chart: Net Balance Trend */}
+                    <div className="bg-white p-7 rounded-2xl shadow-lg border border-gray-100 flex flex-col justify-between">
+                        <div className="flex justify-between items-center mb-4">
                             <h2 className="text-xl font-semibold text-gray-700">Тенденція чистого балансу (Доходи vs Витрати)</h2>
-                            <ChartBarIcon className="h-7 w-7 text-gray-600" />
+                            <ChartBarIcon className="h-6 w-6 text-gray-600" />
                         </div>
-                        <div className="relative h-56 w-full">
+                        <div className="relative h-60 w-full">
                             <Line data={lineChartData} options={lineChartOptions} />
                         </div>
                     </div>
 
-                    {/* Ваші витрати - Mock-up з зображення */}
-                    <div className="bg-white p-7 rounded-2xl shadow-lg border border-gray-100 flex flex-col col-span-1 lg:col-span-2 transform transition-transform duration-300 hover:scale-[1.005]">
-                        <h2 className="text-xl font-semibold text-gray-700 mb-5">Ваші витрати</h2>
-                        <div className="flex items-center bg-blue-50 p-4 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-blue-100">
-                            <CurrencyDollarIcon className="h-7 w-7 text-blue-600 mr-4" />
-                            <div>
-                                <p className="font-bold text-gray-800 text-lg">Buying car</p>
-                                <p className="text-md text-gray-600">Найдешевші ціни</p>
-                            </div>
-                            <span className="ml-auto font-semibold text-red-600 text-lg">
-                                - $128300.00
-                            </span>
+                    {/* NEW SECTION: Expenses by Category (Pie Chart) */}
+                    <div className="bg-white p-7 rounded-2xl shadow-lg border border-gray-100 flex flex-col justify-between col-span-1 lg:col-span-1">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-semibold text-gray-700">Витрати за категоріями</h2>
+                            <CurrencyDollarIcon className="h-6 w-6 text-gray-600" />
+                        </div>
+                        <div className="relative h-60 w-full flex items-center justify-center">
+                            {pieChartData.labels.length > 0 ? (
+                                <Pie data={pieChartData} options={pieChartOptions} />
+                            ) : (
+                                <p className="text-gray-500 text-base">Немає даних про витрати для відображення діаграми.</p>
+                            )}
                         </div>
                     </div>
 
-
-                    {/* Бюджети (прогрес бари) */}
-                    <div className="bg-white p-7 rounded-2xl shadow-lg border border-gray-100 flex flex-col transform transition-transform duration-300 hover:scale-[1.005]">
-                        <h2 className="text-xl font-semibold text-gray-700 mb-5">Ваші бюджети</h2>
-                        {budgets.length === 0 ? (
-                            <p className="text-gray-500 text-base">Немає доданих бюджетів.</p>
-                        ) : (
-                            <div className="space-y-4">
-                                {budgets.map(budget => {
-                                    const progress = (budget.spent / budget.limit) * 100;
-                                    const progressColor = progress > 100 ? 'bg-red-600' : 'bg-green-600';
-                                    return (
-                                        <div key={budget.id} className="group hover:bg-blue-50 p-3 rounded-lg transition-colors duration-150 border border-transparent hover:border-blue-100">
-                                            <div className="flex justify-between text-base text-gray-800 mb-1">
-                                                <span className="font-medium">{budget.name}</span>
-                                                <span className="font-semibold">${budget.spent.toFixed(2)} / ${budget.limit.toFixed(2)}</span>
-                                            </div>
-                                            <div className="w-full bg-gray-200 rounded-full h-2.5">
-                                                <div className={`${progressColor} h-2.5 rounded-full`} style={{ width: `${Math.min(100, progress)}%` }}></div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Цілі (накопичення) */}
-                    <div className="bg-white p-7 rounded-2xl shadow-lg border border-gray-100 flex flex-col transform transition-transform duration-300 hover:scale-[1.005]">
-                        <h2 className="text-xl font-semibold text-gray-700 mb-5">Ваші цілі</h2>
-                        {goals.length === 0 ? (
-                            <p className="text-gray-500 text-base">Немає доданих цілей.</p>
-                        ) : (
-                            <div className="space-y-4">
-                                {goals.map(goal => {
-                                    const progress = (goal.currentProgress / goal.targetAmount) * 100;
-                                    const remaining = goal.targetAmount - goal.currentProgress;
-                                    const isAchieved = goal.currentProgress >= goal.targetAmount;
-                                    return (
-                                        <div key={goal.id} className="group hover:bg-blue-50 p-3 rounded-lg transition-colors duration-150 border border-transparent hover:border-blue-100">
-                                            <div className="flex justify-between text-base text-gray-800 mb-1">
-                                                <span className="font-medium">{goal.name}</span>
-                                                <span className="font-semibold">
-                                                    ${goal.currentProgress.toFixed(2)} / ${goal.targetAmount.toFixed(2)}
-                                                    {isAchieved ? <span className="ml-2 text-green-600 font-semibold"> (Досягнуто!)</span> : ''}
+                    {/* NEW SECTION: Latest Transactions & Largest Expenses */}
+                    <div className="bg-white p-7 rounded-2xl shadow-lg border border-gray-100 flex flex-col justify-between col-span-1 lg:col-span-1">
+                        <h2 className="text-xl font-semibold text-gray-700 mb-4">Останні транзакції та найбільші витрати</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-700 mb-3">Останні транзакції</h3>
+                                {latestTransactions.length === 0 ? (
+                                    <p className="text-gray-500 text-sm">Немає останніх транзакцій.</p>
+                                ) : (
+                                    <ul className="space-y-2">
+                                        {latestTransactions.map(t => (
+                                            <li key={t.id} className="flex justify-between items-center text-sm">
+                                                <span className="text-gray-800">{t.description}</span>
+                                                <span className={`${t.type === 'income' ? 'text-green-600' : 'text-red-600'} font-semibold`}>
+                                                    {t.type === 'income' ? '+' : '-'}${Math.abs(t.amount).toFixed(2)}
                                                 </span>
-                                            </div>
-                                            <div className="w-full bg-gray-200 rounded-full h-2.5">
-                                                <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${Math.min(100, progress)}%` }}></div>
-                                            </div>
-                                            {!isAchieved && (
-                                                <p className="text-xs text-gray-500 mt-1">Залишилось: ${remaining.toFixed(2)} до {goal.dueDate}</p>
-                                            )}
-                                        </div>
-                                    );
-                                })}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
                             </div>
-                        )}
-                    </div>
-
-                    {/* Останні транзакції */}
-                    <div className="bg-white p-7 rounded-2xl shadow-lg border border-gray-100 flex flex-col transform transition-transform duration-300 hover:scale-[1.005]">
-                        <h2 className="text-xl font-semibold text-gray-700 mb-5">Останні транзакції</h2>
-                        {latestTransactions.length === 0 ? (
-                            <p className="text-gray-500 text-base">Немає останніх транзакцій.</p>
-                        ) : (
-                            <ul className="space-y-3">
-                                {latestTransactions.map(t => (
-                                    <li key={t.id} className="flex items-center justify-between text-base text-gray-800 border-b pb-3 last:border-b-0 last:pb-0 group hover:bg-blue-50 px-2 -mx-2 rounded-lg transition-colors duration-150">
-                                        <div className="flex items-center">
-                                            {t.type === 'income' ? (
-                                                <ArrowUpIcon className="h-5 w-5 text-green-600 mr-3" />
-                                            ) : (
-                                                <ArrowDownIcon className="h-5 w-5 text-red-600 mr-3" />
-                                            )}
-                                            <div>
-                                                <p className="font-medium">{t.description}</p>
-                                                <p className="text-sm text-gray-500">{new Date(t.date).toLocaleDateString('uk-UA')}</p>
-                                            </div>
-                                        </div>
-                                        <span className={`font-semibold text-base ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                                            {t.type === 'income' ? '+' : '-'}{Math.abs(t.amount).toFixed(2)} ₴
-                                        </span>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
-
-                    {/* Найбільші витрати */}
-                    <div className="bg-white p-7 rounded-2xl shadow-lg border border-gray-100 flex flex-col transform transition-transform duration-300 hover:scale-[1.005]">
-                        <h2 className="text-xl font-semibold text-gray-700 mb-5">Найбільші витрати</h2>
-                        {largestExpenses.length === 0 ? (
-                            <p className="text-gray-500 text-base">Немає найбільших витрат.</p>
-                        ) : (
-                            <ul className="space-y-3">
-                                {largestExpenses.map(t => (
-                                    <li key={t.id} className="flex items-center justify-between text-base text-gray-800 border-b pb-3 last:border-b-0 last:pb-0 group hover:bg-blue-50 px-2 -mx-2 rounded-lg transition-colors duration-150">
-                                        <div className="flex items-center">
-                                            <ArrowDownIcon className="h-5 w-5 text-red-600 mr-3" />
-                                            <div>
-                                                <p className="font-medium">{t.description}</p>
-                                                <p className="text-sm text-gray-500">{new Date(t.date).toLocaleDateString('uk-UA')} ({t.category})</p>
-                                            </div>
-                                        </div>
-                                        <span className="font-semibold text-base text-red-600">
-                                            -{Math.abs(t.amount).toFixed(2)} ₴
-                                        </span>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
-
-                    {/* Популярні категорії (використовує Pie Chart) */}
-                    <div className="bg-white p-7 rounded-2xl shadow-lg border border-gray-100 col-span-1 lg:col-span-2 transform transition-transform duration-300 hover:scale-[1.005]">
-                        <h2 className="text-xl font-semibold text-gray-700 mb-5">Витрати за категоріями</h2>
-                        <div className="flex flex-col md:flex-row items-center justify-between">
-                            <div className="relative h-60 w-60 md:w-1/2 flex items-center justify-center mb-6 md:mb-0">
-                                <Pie data={pieChartData} options={pieChartOptions} />
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-700 mb-3">Найбільші витрати</h3>
+                                {largestExpenses.length === 0 ? (
+                                    <p className="text-gray-500 text-sm">Немає найбільших витрат.</p>
+                                ) : (
+                                    <ul className="space-y-2">
+                                        {largestExpenses.map(t => (
+                                            <li key={t.id} className="flex justify-between items-center text-sm">
+                                                <span className="text-gray-800">{t.description}</span>
+                                                <span className="text-red-600 font-semibold">-${Math.abs(t.amount).toFixed(2)}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
                             </div>
-                            <ul className="text-gray-700 text-base space-y-2 w-full md:w-1/2 pl-0 md:pl-6">
-                                {pieChartData.labels.map((label, index) => (
-                                    <li key={label} className="flex items-center">
-                                        <span
-                                            className="inline-block w-3.5 h-3.5 rounded-full mr-3"
-                                            style={{ backgroundColor: pieChartData.datasets[0].backgroundColor[index] }}
-                                        ></span>
-                                        {label}
-                                    </li>
-                                ))}
-                            </ul>
                         </div>
                     </div>
                 </div>
+
+                {/* Budgets (progress bars and management) */}
+                <div className="bg-white p-7 rounded-2xl shadow-lg border border-gray-100 flex flex-col mb-8 transform transition-transform duration-300 hover:scale-[1.005]">
+                    <h2 className="text-xl font-semibold text-gray-700 mb-4">Ваші бюджети</h2>
+                    <div className="flex justify-end mb-4"> {/* Added button here */}
+                        <button
+                            onClick={() => setShowCreateBudgetModal(true)}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700 transition-colors duration-200 flex items-center"
+                        >
+                            <PlusIcon className="h-5 w-5 mr-2" /> Додати новий бюджет
+                        </button>
+                    </div>
+                    {budgets.length === 0 ? (
+                        <p className="text-gray-500 text-base">Немає доданих бюджетів.</p>
+                    ) : (
+                        <div className="space-y-4">
+                            {budgets.map(budget => {
+                                const progress = (budget.spent / budget.limit) * 100;
+                                const progressColor = progress > 100 ? 'bg-red-500' : 'bg-green-500';
+                                return (
+                                    <div key={budget.id} className="group hover:bg-blue-50 p-3 rounded-lg transition-colors duration-150 flex items-center justify-between border border-blue-100">
+                                        <div className="flex-1 mr-4">
+                                            <div className="flex justify-between text-base text-gray-800 mb-1 font-semibold">
+                                                <span>{budget.name} ({budget.category})</span>
+                                                <span>${budget.spent.toFixed(2)} / ${budget.limit.toFixed(2)}</span>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-3">
+                                                <div className={`${progressColor} h-3 rounded-full transition-all duration-500`} style={{ width: `${Math.min(100, progress)}%` }}></div>
+                                            </div>
+                                            {progress > 100 && (
+                                                <p className="text-xs text-red-600 mt-1">Перевищено бюджет на ${Math.abs(budget.limit - budget.spent).toFixed(2)}!</p>
+                                            )}
+                                        </div>
+                                        <div className="flex space-x-2">
+                                            <button
+                                                onClick={() => {
+                                                    setSelectedBudget(budget);
+                                                    setEditBudget({ ...budget });
+                                                    setShowEditBudgetModal(true);
+                                                }}
+                                                className="text-indigo-600 hover:text-indigo-900 transition-colors duration-200 p-2 rounded-md hover:bg-indigo-50"
+                                                title="Редагувати"
+                                            >
+                                                <PencilIcon className="h-5 w-5" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteBudget(budget)}
+                                                className="text-red-600 hover:text-red-900 transition-colors duration-200 p-2 rounded-md hover:bg-red-50 ml-2"
+                                                title="Видалити"
+                                            >
+                                                <TrashIcon className="h-5 w-5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Goals (savings goals) */}
+                <div className="bg-white p-7 rounded-2xl shadow-lg border border-gray-100 flex flex-col transform transition-transform duration-300 hover:scale-[1.005]">
+                    <h2 className="text-xl font-semibold text-gray-700 mb-4">Ваші цілі</h2>
+                    {goals.length === 0 ? (
+                        <p className="text-gray-500 text-base">Немає доданих цілей.</p>
+                    ) : (
+                        <div className="space-y-4">
+                            {goals.map(goal => {
+                                const progress = (goal.currentProgress / goal.targetAmount) * 100;
+                                const remaining = goal.targetAmount - goal.currentProgress;
+                                const isAchieved = goal.currentProgress >= goal.targetAmount;
+                                return (
+                                    <div key={goal.id} className="group hover:bg-blue-50 p-3 rounded-lg transition-colors duration-150 border border-blue-100">
+                                        <div className="flex justify-between text-base text-gray-800 mb-1 font-semibold">
+                                            <span>{goal.name}</span>
+                                            <span>
+                                                ${goal.currentProgress.toFixed(2)} / ${goal.targetAmount.toFixed(2)}
+                                                {isAchieved ? <span className="ml-2 text-green-600 font-semibold"> (Досягнуто!)</span> : ''}
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-3">
+                                            <div className="bg-blue-600 h-3 rounded-full transition-all duration-500" style={{ width: `${Math.min(100, progress)}%` }}></div>
+                                        </div>
+                                        {!isAchieved && (
+                                            <p className="text-xs text-gray-500 mt-1">Залишилось: ${remaining.toFixed(2)} до {goal.dueDate}</p>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Модальне вікно для створення нового бюджету */}
+                {showCreateBudgetModal && (
+                    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+                            <h2 className="text-2xl font-bold text-gray-800 mb-4">Створити новий бюджет</h2>
+                            <div className="space-y-4">
+                                <div>
+                                    <label htmlFor="newBudgetName" className="block text-sm font-medium text-gray-700 mb-1">Назва бюджету</label>
+                                    <input
+                                        id="newBudgetName"
+                                        type="text"
+                                        placeholder="Напр. 'Продукти'"
+                                        value={newBudget.name}
+                                        onChange={e => setNewBudget({ ...newBudget, name: e.target.value })}
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="newBudgetLimit" className="block text-sm font-medium text-gray-700 mb-1">Ліміт бюджету</label>
+                                    <input
+                                        id="newBudgetLimit"
+                                        type="number"
+                                        placeholder="Напр. 500.00"
+                                        value={newBudget.limit === 0 ? '' : newBudget.limit}
+                                        onChange={e => setNewBudget({ ...newBudget, limit: parseFloat(e.target.value) || 0 })}
+                                        step="0.01"
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="newBudgetCategory" className="block text-sm font-medium text-gray-700 mb-1">Категорія</label>
+                                    <input
+                                        id="newBudgetCategory"
+                                        type="text"
+                                        placeholder="Напр. 'Їжа', 'Транспорт'"
+                                        value={newBudget.category}
+                                        onChange={e => setNewBudget({ ...newBudget, category: e.target.value })}
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex justify-end space-x-4 mt-6">
+                                <button
+                                    onClick={() => setShowCreateBudgetModal(false)}
+                                    className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors duration-200"
+                                >
+                                    Скасувати
+                                </button>
+                                <button
+                                    onClick={handleCreateBudget}
+                                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                                >
+                                    Створити
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Модальне вікно для редагування бюджету */}
+                {showEditBudgetModal && selectedBudget && (
+                    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+                            <h2 className="text-2xl font-bold text-gray-800 mb-4">Редагувати бюджет</h2>
+                            <div className="space-y-4">
+                                <div>
+                                    <label htmlFor="editBudgetName" className="block text-sm font-medium text-gray-700 mb-1">Назва</label>
+                                    <input
+                                        id="editBudgetName"
+                                        type="text"
+                                        value={editBudget.name}
+                                        onChange={e => setEditBudget({ ...editBudget, name: e.target.value })}
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="editBudgetLimit" className="block text-sm font-medium text-gray-700 mb-1">Ліміт</label>
+                                    <input
+                                        id="editBudgetLimit"
+                                        type="number"
+                                        value={editBudget.limit}
+                                        onChange={e => setEditBudget({ ...editBudget, limit: parseFloat(e.target.value) || 0 })}
+                                        step="0.01"
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="editBudgetSpent" className="block text-sm font-medium text-gray-700 mb-1">Витрачено</label>
+                                    <input
+                                        id="editBudgetSpent"
+                                        type="number"
+                                        value={editBudget.spent}
+                                        onChange={e => setEditBudget({ ...editBudget, spent: parseFloat(e.target.value) || 0 })}
+                                        step="0.01"
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="editBudgetCategory" className="block text-sm font-medium text-gray-700 mb-1">Категорія</label>
+                                    <input
+                                        id="editBudgetCategory"
+                                        type="text"
+                                        value={editBudget.category}
+                                        onChange={e => setEditBudget({ ...editBudget, category: e.target.value })}
+                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex justify-end space-x-4 mt-6">
+                                <button
+                                    onClick={() => { setShowEditBudgetModal(false); setSelectedBudget(null); }}
+                                    className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors duration-200"
+                                >
+                                    Скасувати
+                                </button>
+                                <button
+                                    onClick={handleEditBudget}
+                                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                                >
+                                    Зберегти
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Модальне вікно підтвердження видалення */}
+                {showDeleteBudgetConfirm && (
+                    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
+                            <div className="flex items-center text-red-500 mb-4">
+                                <ExclamationTriangleIcon className="h-6 w-6 mr-2" />
+                                <h3 className="text-lg font-bold text-gray-800">Підтвердити видалення</h3>
+                            </div>
+                            <p className="text-gray-700 mb-6">
+                                Ви впевнені, що хочете видалити бюджет "<span className="font-semibold">{selectedBudget.name}</span>"?
+                                Цю дію не можна скасувати.
+                            </p>
+                            <div className="flex justify-end space-x-4">
+                                <button
+                                    onClick={cancelDeleteBudget}
+                                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors duration-200"
+                                >
+                                    Скасувати
+                                </button>
+                                <button
+                                    onClick={confirmDeleteBudget}
+                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200"
+                                >
+                                    Видалити
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

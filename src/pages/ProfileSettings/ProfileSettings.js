@@ -1,14 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import {
     UserCircleIcon, HomeIcon, ClipboardDocumentListIcon, BellIcon,
-    ChevronDownIcon, BanknotesIcon, CreditCardIcon, Squares2X2Icon, ListBulletIcon, UsersIcon
-} from '@heroicons/react/24/outline';
-// Видалено 'collection' з імпорту, оскільки він не використовувався
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+    ChevronDownIcon, BanknotesIcon, CreditCardIcon, UsersIcon, ListBulletIcon
+} from '@heroicons/react/24/outline'; // Видалено Squares2X2Icon
+import { doc, getDoc, setDoc } from 'firebase/firestore'; // Змінено updateDoc на setDoc
 import { signOut } from 'firebase/auth';
 import { useNavigate, Link } from 'react-router-dom';
 
 const logoUrl = "/image.png"; // Переконайтеся, що шлях до логотипу правильний
+
+// ====================================================================================
+// ВАЖЛИВО: ЗАМІНІТЬ ЦЕ НА ВАШ АКТУАЛЬНИЙ ADMIN USER ID з Firebase Authentication.
+// Це userId облікового запису, який має доступ до адмін-панелі.
+// ====================================================================================
+const ADMIN_USER_ID = "CawE33GEkZhLFsapAdBr3saDV3F3"; // <<<--- ЗМІНЕНО!
 
 function ProfileSettings({ db, auth, userId }) {
     const [userData, setUserData] = useState(null);
@@ -25,6 +30,7 @@ function ProfileSettings({ db, auth, userId }) {
     const [city, setCity] = useState('');
     const [country, setCountry] = useState('');
     const [currency, setCurrency] = useState('UAH'); // Додано для збереження валюти користувача
+    const [profileImageUrl, setProfileImageUrl] = useState(''); // Додано стан для URL фото профілю
 
     const navigate = useNavigate();
     const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
@@ -51,9 +57,12 @@ function ProfileSettings({ db, auth, userId }) {
                     setCity(data.city || '');
                     setCountry(data.country || '');
                     setCurrency(data.currency || 'UAH'); // Встановити збережену валюту
+                    setProfileImageUrl(data.profileImageUrl || ''); // Завантажити URL фото профілю
                 } else {
                     console.log("Документ профілю не існує, використовуються значення за замовчуванням.");
                     setEmail(auth.currentUser?.email || '');
+                    // Якщо документа немає, встановлюємо початкове фото профілю, якщо потрібно
+                    // setProfileImageUrl(defaultImageUrl); // наприклад
                 }
             } catch (err) {
                 console.error("Помилка отримання даних користувача:", err);
@@ -85,12 +94,14 @@ function ProfileSettings({ db, auth, userId }) {
             city: city.trim(),
             country: country.trim(),
             currency: currency, // Зберігаємо обрану валюту
+            profileImageUrl: profileImageUrl, // Зберігаємо URL фото профілю
             updatedAt: new Date().toISOString(),
         };
 
         try {
             const userDocRef = doc(db, `/artifacts/${appId}/users/${userId}/profile`, 'details');
-            await updateDoc(userDocRef, profileData, { merge: true }); // Використовуємо merge, щоб не перезаписувати інші поля
+            // Змінено updateDoc на setDoc з merge: true
+            await setDoc(userDocRef, profileData, { merge: true });
             setSaveSuccess(true);
             setError(null);
             console.log("Профіль успішно оновлено!");
@@ -171,13 +182,15 @@ function ProfileSettings({ db, auth, userId }) {
                         <Link to="/transactions" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
                             <ClipboardDocumentListIcon className="h-5 w-5 mr-3" /> Transactions
                         </Link>
-                        <Link to="/categories" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
+                        {/* Видалено посилання на Categories */}
+                        {/* <Link to="/categories" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
                             <Squares2X2Icon className="h-5 w-5 mr-3" /> Categories
-                        </Link>
-                        <Link to="/admin" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
-                            <UsersIcon className="h-5 w-5 mr-3" /> Admin Panel
-                        </Link>
-                        {/* Посилання на "Налаштування профілю" тепер активне */}
+                        </Link> */}
+                        {userId === ADMIN_USER_ID && ( // Умовний рендеринг: відображати посилання, якщо користувач є адміністратором
+                            <Link to="/admin" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
+                                <UsersIcon className="h-5 w-5 mr-3" /> Admin Panel
+                            </Link>
+                        )}
                         <Link to="/profile-settings" className="flex items-center text-blue-700 bg-blue-50 px-4 py-2.5 rounded-xl font-semibold transition-all duration-200 shadow-sm hover:shadow-md">
                             <UserCircleIcon className="h-5 w-5 mr-3" /> Налаштування профілю
                         </Link>
@@ -203,7 +216,11 @@ function ProfileSettings({ db, auth, userId }) {
                         </div>
                         <BellIcon className="h-7 w-7 text-gray-500 cursor-pointer hover:text-blue-600 transition-colors duration-200" />
                         <div className="flex items-center space-x-3">
-                            <UserCircleIcon className="h-10 w-10 text-blue-500 rounded-full bg-blue-100 p-1" />
+                            {profileImageUrl ? (
+                                <img src={profileImageUrl} alt="Profile" className="h-10 w-10 rounded-full object-cover border-2 border-blue-500" />
+                            ) : (
+                                <UserCircleIcon className="h-10 w-10 text-blue-500 rounded-full bg-blue-100 p-1" />
+                            )}
                             <div className="text-base">
                                 <p className="font-semibold text-gray-800">{userData?.firstName || auth.currentUser?.email || 'Користувач'}</p>
                             </div>
@@ -302,7 +319,7 @@ function ProfileSettings({ db, auth, userId }) {
                             </div>
                         </div>
 
-                        {/* Нове поле для вибору валюти */}
+                        {/* Поле для вибору валюти */}
                         <div>
                             <label htmlFor="currency" className="block text-gray-700 text-base font-medium mb-2">Основна валюта:</label>
                             <select
@@ -317,6 +334,27 @@ function ProfileSettings({ db, auth, userId }) {
                                     </option>
                                 ))}
                             </select>
+                        </div>
+
+                        {/* Можливість додати фото профілю */}
+                        <div>
+                            <label htmlFor="profilePhoto" className="block text-gray-700 text-base font-medium mb-2">Фото профілю (URL):</label>
+                            <div className="flex items-center space-x-4">
+                                {profileImageUrl ? (
+                                    <img src={profileImageUrl} alt="Profile Preview" className="h-20 w-20 rounded-full object-cover border-2 border-blue-300" />
+                                ) : (
+                                    <UserCircleIcon className="h-20 w-20 text-gray-400 rounded-full bg-gray-100 p-2" />
+                                )}
+                                <input
+                                    type="text"
+                                    id="profilePhoto"
+                                    placeholder="Вставте URL зображення профілю"
+                                    value={profileImageUrl}
+                                    onChange={(e) => setProfileImageUrl(e.target.value)}
+                                    className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                                />
+                            </div>
+                            <p className="text-sm text-gray-500 mt-1">Ви можете вставити пряме посилання на зображення (наприклад, з Imgur, Google Photos тощо).</p>
                         </div>
 
 
