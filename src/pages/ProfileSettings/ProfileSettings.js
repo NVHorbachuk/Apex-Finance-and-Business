@@ -1,40 +1,32 @@
 import React, { useState, useEffect } from 'react';
+import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
 import {
-    UserCircleIcon, HomeIcon, ClipboardDocumentListIcon, BellIcon,
-    ChevronDownIcon, BanknotesIcon, CreditCardIcon, UsersIcon, ListBulletIcon
-} from '@heroicons/react/24/outline'; // Видалено Squares2X2Icon
-import { doc, getDoc, setDoc } from 'firebase/firestore'; // Змінено updateDoc на setDoc
-import { signOut } from 'firebase/auth';
-import { useNavigate, Link } from 'react-router-dom';
+    UserCircleIcon, HomeIcon, BanknotesIcon, CreditCardIcon, Squares2X2Icon, ListBulletIcon, ClipboardDocumentListIcon, UsersIcon
+} from '@heroicons/react/24/outline';
+import { Link } from 'react-router-dom';
 
-const logoUrl = "/image.png"; // Переконайтеся, що шлях до логотипу правильний
+const logoUrl = "/image.png";
 
-// ====================================================================================
-// ВАЖЛИВО: ЗАМІНІТЬ ЦЕ НА ВАШ АКТУАЛЬНИЙ ADMIN USER ID з Firebase Authentication.
-// Це userId облікового запису, який має доступ до адмін-панелі.
-// ====================================================================================
-const ADMIN_USER_ID = "CawE33GEkZhLFsapAdBr3saDV3F3"; // <<<--- ЗМІНЕНО!
-
-function ProfileSettings({ db, auth, userId }) {
-    const [userData, setUserData] = useState(null);
+function ProfileSettings({ db, auth, userId, userData, setGlobalUserData }) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
-    const [saveSuccess, setSaveSuccess] = useState(false);
+    const [profileData, setProfileData] = useState({
+        firstName: '',
+        lastName: '',
+        email: '',
+        workplace: '',
+        residence: '',
+        spouseFirstName: '',
+        spouseLastName: '',
+        spouseEmail: '',
+        spousePhone: '',
+        spouseOccupation: '', // NEW: Spouse's Occupation
+        spouseIncome: 0,       // NEW: Spouse's Income
+        spouseIncomeFrequency: 'Monthly' // NEW: Spouse's Income Frequency (Default)
+    });
 
-    const [firstName, setFirstName] = useState('');
-    const [lastName, setLastName] = useState('');
-    const [email, setEmail] = useState(''); // Email може бути змінений, якщо Firebase це дозволяє, або просто для відображення
-    const [phone, setPhone] = useState('');
-    const [address, setAddress] = useState('');
-    const [city, setCity] = useState('');
-    const [country, setCountry] = useState('');
-    const [currency, setCurrency] = useState('UAH'); // Додано для збереження валюти користувача
-    const [profileImageUrl, setProfileImageUrl] = useState(''); // Додано стан для URL фото профілю
-
-    const navigate = useNavigate();
     const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
-
 
     useEffect(() => {
         if (!db || !userId) {
@@ -42,338 +34,292 @@ function ProfileSettings({ db, auth, userId }) {
             return;
         }
 
-        const fetchUserData = async () => {
-            try {
-                const userDocRef = doc(db, `/artifacts/${appId}/users/${userId}/profile`, 'details');
-                const docSnap = await getDoc(userDocRef);
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    setUserData(data);
-                    setFirstName(data.firstName || '');
-                    setLastName(data.lastName || '');
-                    setEmail(auth.currentUser?.email || data.email || ''); // Використовувати email з Auth, якщо доступний
-                    setPhone(data.phone || '');
-                    setAddress(data.address || '');
-                    setCity(data.city || '');
-                    setCountry(data.country || '');
-                    setCurrency(data.currency || 'UAH'); // Встановити збережену валюту
-                    setProfileImageUrl(data.profileImageUrl || ''); // Завантажити URL фото профілю
-                } else {
-                    console.log("Документ профілю не існує, використовуються значення за замовчуванням.");
-                    setEmail(auth.currentUser?.email || '');
-                    // Якщо документа немає, встановлюємо початкове фото профілю, якщо потрібно
-                    // setProfileImageUrl(defaultImageUrl); // наприклад
-                }
-            } catch (err) {
-                console.error("Помилка отримання даних користувача:", err);
-                setError(new Error(`Помилка отримання даних профілю: ${err.message}`));
-            } finally {
-                setLoading(false);
-            }
-        };
+        const userProfileRef = doc(db, `/artifacts/${appId}/public/data/user_profiles`, userId);
 
-        fetchUserData();
+        const unsubscribe = onSnapshot(userProfileRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const fetchedData = snapshot.data();
+                setProfileData({
+                    firstName: fetchedData.firstName || '',
+                    lastName: fetchedData.lastName || '',
+                    email: fetchedData.email || auth.currentUser?.email || '',
+                    workplace: fetchedData.workplace || '',
+                    residence: fetchedData.residence || '',
+                    spouseFirstName: fetchedData.spouseFirstName || '',
+                    spouseLastName: fetchedData.spouseLastName || '',
+                    spouseEmail: fetchedData.spouseEmail || '',
+                    spousePhone: fetchedData.spousePhone || '',
+                    spouseOccupation: fetchedData.spouseOccupation || '', // Fetch new field
+                    spouseIncome: fetchedData.spouseIncome || 0,       // Fetch new field
+                    spouseIncomeFrequency: fetchedData.spouseIncomeFrequency || 'Monthly' // Fetch new field
+                });
+            } else {
+                setProfileData({
+                    firstName: '',
+                    lastName: '',
+                    email: auth.currentUser?.email || '',
+                    workplace: '',
+                    residence: '',
+                    spouseFirstName: '',
+                    spouseLastName: '',
+                    spouseEmail: '',
+                    spousePhone: '',
+                    spouseOccupation: '', // Initialize new field
+                    spouseIncome: 0,       // Initialize new field
+                    spouseIncomeFrequency: 'Monthly' // Initialize new field
+                });
+            }
+            setLoading(false);
+        }, (err) => {
+            console.error("ProfileSettings: Помилка отримання даних профілю:", err);
+            setError(err);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
     }, [db, userId, appId, auth]);
+
+    const handleInputChange = (e) => {
+        const { name, value, type } = e.target;
+        setProfileData(prevData => ({
+            ...prevData,
+            [name]: type === 'number' ? parseFloat(value) || 0 : value
+        }));
+    };
 
     const handleSaveProfile = async (e) => {
         e.preventDefault();
         if (!db || !userId) {
-            setError(new Error("Немає підключення до бази даних або ID користувача."));
+            console.error("Firebase або ID користувача недоступні.");
             return;
         }
 
         setIsSaving(true);
-        setSaveSuccess(false);
-
-        const profileData = {
-            firstName: firstName.trim(),
-            lastName: lastName.trim(),
-            // Email не змінюється через профіль, він береться з Auth
-            phone: phone.trim(),
-            address: address.trim(),
-            city: city.trim(),
-            country: country.trim(),
-            currency: currency, // Зберігаємо обрану валюту
-            profileImageUrl: profileImageUrl, // Зберігаємо URL фото профілю
-            updatedAt: new Date().toISOString(),
-        };
+        setError(null);
 
         try {
-            const userDocRef = doc(db, `/artifacts/${appId}/users/${userId}/profile`, 'details');
-            // Змінено updateDoc на setDoc з merge: true
-            await setDoc(userDocRef, profileData, { merge: true });
-            setSaveSuccess(true);
-            setError(null);
-            console.log("Профіль успішно оновлено!");
-            setTimeout(() => setSaveSuccess(false), 3000); // Сховати повідомлення про успіх через 3 секунди
+            const userProfileRef = doc(db, `/artifacts/${appId}/public/data/user_profiles`, userId);
+            await setDoc(userProfileRef, {
+                ...profileData,
+                email: auth.currentUser?.email || profileData.email,
+                userId: userId,
+                updatedAt: new Date().toISOString()
+            }, { merge: true });
+
+            if (setGlobalUserData) {
+                setGlobalUserData(prevUserData => ({
+                    ...prevUserData,
+                    ...profileData,
+                    email: auth.currentUser?.email || profileData.email
+                }));
+            }
+
+            console.log("Дані профілю успішно збережено!");
         } catch (err) {
-            console.error("Помилка оновлення профілю:", err);
-            setError(new Error(`Помилка оновлення профілю: ${err.message}`));
+            console.error("Помилка збереження профілю:", err);
+            setError(new Error(`Помилка збереження профілю: ${err.message}`));
         } finally {
             setIsSaving(false);
         }
     };
 
-    const handleLogout = async () => {
-        if (!auth) {
-            console.error("Firebase Auth не доступний.");
-            return;
-        }
-        try {
-            await signOut(auth);
-            console.log("Користувач успішно вийшов з облікового запису.");
-            navigate('/login');
-        } catch (error) {
-            console.error("Помилка виходу з облікового запису:", error);
-            setError(new Error(`Помилка виходу: ${error.message}`));
-        }
-    };
-
-    // Доступні валюти для вибору (розширений список)
-    const availableCurrencies = [
-        { code: 'USD', name: 'United States Dollar', symbol: '$' },
-        { code: 'EUR', name: 'Euro', symbol: '€' },
-        { code: 'UAH', name: 'Українська гривня', symbol: '₴' },
-        { code: 'GBP', name: 'British Pound', symbol: '£' },
-        { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
-        { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
-        { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
-        { code: 'CHF', name: 'Swiss Franc', symbol: 'CHF' },
-        { code: 'CNY', name: 'Chinese Yuan', symbol: '¥' },
-        { code: 'SEK', name: 'Swedish Krona', symbol: 'kr' },
-        { code: 'NZD', name: 'New Zealand Dollar', symbol: 'NZ$' },
-        { code: 'MXN', name: 'Mexican Peso', symbol: 'Mex$' },
-        { code: 'SGD', name: 'Singapore Dollar', symbol: 'S$' },
-        { code: 'HKD', name: 'Hong Kong Dollar', symbol: 'HK$' },
-        { code: 'NOK', name: 'Norwegian Krone', symbol: 'kr' },
-        { code: 'KRW', name: 'South Korean Won', symbol: '₩' },
-        { code: 'TRY', name: 'Turkish Lira', symbol: '₺' },
-        { code: 'RUB', name: 'Russian Ruble', symbol: '₽' },
-        { code: 'INR', name: 'Indian Rupee', symbol: '₹' },
-        { code: 'BRL', name: 'Brazilian Real', symbol: 'R$' },
-        { code: 'ZAR', name: 'South African Rand', symbol: 'R' }
-    ];
-
-    if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans']">Завантаження профілю...</div>;
+    if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans']">Завантаження налаштувань профілю...</div>;
     if (error) return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans'] text-red-500">Помилка: {error.message}</div>;
 
     return (
-        <div className="flex min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 font-['DM Sans']">
-            {/* Sidebar (copied from Dashboard for consistency) */}
-            <aside className="w-64 bg-white p-6 shadow-xl flex flex-col justify-between rounded-r-3xl border-r border-gray-100">
+        <div className="flex min-h-screen bg-gray-100">
+            {/* Бічна панель */}
+            <aside className="w-64 bg-white p-6 shadow-xl flex flex-col justify-between rounded-r-xl">
                 <div>
-                    <div className="flex items-center mb-10 px-2">
-                        <img src={logoUrl} alt="APEX FINANCE Logo" className="w-10 h-10 mr-3 object-contain rounded-full shadow-sm" />
-                        <span className="text-2xl font-extrabold text-gray-900">APEX FINANCE</span>
+                    <div className="flex items-center mb-10">
+                        <img src={logoUrl} alt="Finance Manager Logo" className="w-8 h-8 mr-2 object-contain" />
+                        <span className="text-xl font-bold text-gray-900">Finance Manager</span>
                     </div>
-                    <nav className="space-y-3">
-                        <Link to="/dashboard" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
-                            <HomeIcon className="h-5 w-5 mr-3" /> Dashboard
+                    <nav className="space-y-4">
+                        {/* Посилання на Dashboard (раніше Home) */}
+                        <Link to="/dashboard" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                            <HomeIcon className="h-5 w-5 mr-3" /> Інформаційна панель
                         </Link>
-                        <Link to="/budgets" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
-                            <BanknotesIcon className="h-5 w-5 mr-3" /> Budgets
+                        <Link to="/budgets" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                            <BanknotesIcon className="h-5 w-5 mr-3" /> Бюджети
                         </Link>
-                        <Link to="/goals" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
-                            <ListBulletIcon className="h-5 w-5 mr-3" /> Goals
+                        <Link to="/goals" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                            <ListBulletIcon className="h-5 w-5 mr-3" /> Наші цілі
                         </Link>
-                        <Link to="/accounts" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
-                            <CreditCardIcon className="h-5 w-5 mr-3" /> Accounts
+                        <Link to="/accounts" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                            <CreditCardIcon className="h-5 w-5 mr-3" /> Рахунки
                         </Link>
-                        <Link to="/transactions" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
-                            <ClipboardDocumentListIcon className="h-5 w-5 mr-3" /> Transactions
+                        <Link to="/transactions" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                            <ClipboardDocumentListIcon className="h-5 w-5 mr-3" /> Транзакції
                         </Link>
-                        {/* Видалено посилання на Categories */}
-                        {/* <Link to="/categories" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
-                            <Squares2X2Icon className="h-5 w-5 mr-3" /> Categories
-                        </Link> */}
-                        {userId === ADMIN_USER_ID && ( // Умовний рендеринг: відображати посилання, якщо користувач є адміністратором
-                            <Link to="/admin" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
-                                <UsersIcon className="h-5 w-5 mr-3" /> Admin Panel
-                            </Link>
-                        )}
-                        <Link to="/profile-settings" className="flex items-center text-blue-700 bg-blue-50 px-4 py-2.5 rounded-xl font-semibold transition-all duration-200 shadow-sm hover:shadow-md">
+                        <Link to="/admin" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                            <UsersIcon className="h-5 w-5 mr-3" /> Admin Panel
+                        </Link>
+                        <Link to="/profile-settings" className="flex items-center text-blue-600 bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
                             <UserCircleIcon className="h-5 w-5 mr-3" /> Налаштування профілю
                         </Link>
                     </nav>
                 </div>
             </aside>
 
-            {/* Main content area */}
-            <div className="flex-1 p-8 max-w-[1400px] mx-auto">
-                {/* Header (copied from Dashboard for consistency) */}
-                <header className="bg-white p-5 rounded-2xl shadow-lg flex justify-between items-center mb-8 border border-gray-100">
-                    <h1 className="text-3xl font-extrabold text-gray-900">Налаштування профілю</h1>
-                    <div className="flex items-center space-x-6">
-                        {/* Dummy Budget Selector for consistent header */}
-                        <div className="relative">
-                            <select
-                                className="appearance-none bg-gray-100 text-gray-800 font-semibold py-2.5 px-5 rounded-xl pr-10 cursor-pointer text-base focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all duration-200 hover:bg-gray-200"
-                            >
-                                <option value="Budget 1">Budget 1</option>
-                                <option value="Budget 2">Budget 2</option>
-                            </select>
-                            <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-600 pointer-events-none" />
-                        </div>
-                        <BellIcon className="h-7 w-7 text-gray-500 cursor-pointer hover:text-blue-600 transition-colors duration-200" />
-                        <div className="flex items-center space-x-3">
-                            {profileImageUrl ? (
-                                <img src={profileImageUrl} alt="Profile" className="h-10 w-10 rounded-full object-cover border-2 border-blue-500" />
-                            ) : (
-                                <UserCircleIcon className="h-10 w-10 text-blue-500 rounded-full bg-blue-100 p-1" />
-                            )}
-                            <div className="text-base">
-                                <p className="font-semibold text-gray-800">{userData?.firstName || auth.currentUser?.email || 'Користувач'}</p>
-                            </div>
-                            <button
-                                onClick={handleLogout}
-                                className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2.5 px-5 rounded-xl transition-colors duration-200 shadow-sm hover:shadow-md text-base"
-                            >
-                                Вийти
-                            </button>
-                        </div>
-                    </div>
+            {/* Основний контент сторінки налаштувань профілю */}
+            <div className="flex-1 p-4 sm:p-6 lg:p-8">
+                <header className="bg-white p-4 rounded-xl shadow-md flex justify-between items-center mb-6">
+                    <h1 className="text-3xl sm:text-4xl font-bold text-gray-800">Налаштування профілю</h1>
                 </header>
 
-                <div className="bg-white p-7 rounded-2xl shadow-lg border border-gray-100">
-                    <h2 className="text-2xl font-semibold text-gray-700 mb-6">Особиста інформація</h2>
+                <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+                    {error && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                            <span className="block sm:inline">{error.message}</span>
+                        </div>
+                    )}
                     <form onSubmit={handleSaveProfile} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        {/* Розділ "Особисті дані" */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label htmlFor="firstName" className="block text-gray-700 text-base font-medium mb-2">Ім'я:</label>
-                                <input
-                                    type="text"
-                                    id="firstName"
-                                    value={firstName}
-                                    onChange={(e) => setFirstName(e.target.value)}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-                                    required
-                                />
+                                <h2 className="text-xl font-semibold text-gray-700 mb-4">Особисті дані</h2>
+                                <label className="block mb-3">
+                                    <span className="text-gray-700">Ім'я:</span>
+                                    <input
+                                        type="text"
+                                        name="firstName"
+                                        value={profileData.firstName}
+                                        onChange={handleInputChange}
+                                        className="mt-1 block w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </label>
+                                <label className="block mb-3">
+                                    <span className="text-gray-700">Прізвище:</span>
+                                    <input
+                                        type="text"
+                                        name="lastName"
+                                        value={profileData.lastName}
+                                        onChange={handleInputChange}
+                                        className="mt-1 block w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </label>
+                                <label className="block mb-3">
+                                    <span className="text-gray-700">Email (не редагується):</span>
+                                    <input
+                                        type="email"
+                                        name="email"
+                                        value={profileData.email}
+                                        readOnly
+                                        className="mt-1 block w-full border p-2 rounded-lg bg-gray-100 cursor-not-allowed"
+                                    />
+                                </label>
+                                <label className="block mb-3">
+                                    <span className="text-gray-700">Місце роботи:</span>
+                                    <input
+                                        type="text"
+                                        name="workplace"
+                                        value={profileData.workplace}
+                                        onChange={handleInputChange}
+                                        className="mt-1 block w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </label>
+                                <label className="block mb-3">
+                                    <span className="text-gray-700">Місце проживання:</span>
+                                    <input
+                                        type="text"
+                                        name="residence"
+                                        value={profileData.residence}
+                                        onChange={handleInputChange}
+                                        className="mt-1 block w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </label>
                             </div>
+
+                            {/* Розділ "Дані про дружину/чоловіка" */}
                             <div>
-                                <label htmlFor="lastName" className="block text-gray-700 text-base font-medium mb-2">Прізвище:</label>
-                                <input
-                                    type="text"
-                                    id="lastName"
-                                    value={lastName}
-                                    onChange={(e) => setLastName(e.target.value)}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-                                    required
-                                />
+                                <h2 className="text-xl font-semibold text-gray-700 mb-4">Дані про дружину/чоловіка</h2>
+                                <label className="block mb-3">
+                                    <span className="text-gray-700">Ім'я:</span>
+                                    <input
+                                        type="text"
+                                        name="spouseFirstName"
+                                        value={profileData.spouseFirstName}
+                                        onChange={handleInputChange}
+                                        className="mt-1 block w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </label>
+                                <label className="block mb-3">
+                                    <span className="text-gray-700">Прізвище:</span>
+                                    <input
+                                        type="text"
+                                        name="spouseLastName"
+                                        value={profileData.spouseLastName}
+                                        onChange={handleInputChange}
+                                        className="mt-1 block w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </label>
+                                <label className="block mb-3">
+                                    <span className="text-gray-700">Email:</span>
+                                    <input
+                                        type="email"
+                                        name="spouseEmail"
+                                        value={profileData.spouseEmail}
+                                        onChange={handleInputChange}
+                                        className="mt-1 block w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </label>
+                                <label className="block mb-3">
+                                    <span className="text-gray-700">Телефон:</span>
+                                    <input
+                                        type="tel"
+                                        name="spousePhone"
+                                        value={profileData.spousePhone}
+                                        onChange={handleInputChange}
+                                        className="mt-1 block w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </label>
+                                {/* NEW: Spouse's Occupation */}
+                                <label className="block mb-3">
+                                    <span className="text-gray-700">Професія:</span>
+                                    <input
+                                        type="text"
+                                        name="spouseOccupation"
+                                        value={profileData.spouseOccupation}
+                                        onChange={handleInputChange}
+                                        className="mt-1 block w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </label>
+                                {/* NEW: Spouse's Income */}
+                                <label className="block mb-3">
+                                    <span className="text-gray-700">Дохід:</span>
+                                    <input
+                                        type="number"
+                                        name="spouseIncome"
+                                        value={profileData.spouseIncome === 0 ? '' : profileData.spouseIncome} // Display empty if 0
+                                        onChange={handleInputChange}
+                                        step="0.01"
+                                        className="mt-1 block w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    />
+                                </label>
+                                {/* NEW: Spouse's Income Frequency */}
+                                <label className="block mb-3">
+                                    <span className="text-gray-700">Періодичність доходу:</span>
+                                    <select
+                                        name="spouseIncomeFrequency"
+                                        value={profileData.spouseIncomeFrequency}
+                                        onChange={handleInputChange}
+                                        className="mt-1 block w-full border p-2 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        <option value="Monthly">Щомісячно</option>
+                                        <option value="Weekly">Щотижня</option>
+                                        <option value="Bi-Weekly">Раз на два тижні</option>
+                                        <option value="Annually">Щорічно</option>
+                                        <option value="Other">Інше</option>
+                                    </select>
+                                </label>
                             </div>
                         </div>
-
-                        <div>
-                            <label htmlFor="email" className="block text-gray-700 text-base font-medium mb-2">Електронна пошта:</label>
-                            <input
-                                type="email"
-                                id="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)} // Дозволяє користувачеві вводити, але не зберігається
-                                className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 focus:outline-none cursor-not-allowed text-base"
-                                disabled // Електронна пошта зазвичай не змінюється напряму
-                            />
-                        </div>
-
-                        <div>
-                            <label htmlFor="phone" className="block text-gray-700 text-base font-medium mb-2">Телефон:</label>
-                            <input
-                                type="tel"
-                                id="phone"
-                                value={phone}
-                                onChange={(e) => setPhone(e.target.value)}
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-                            />
-                        </div>
-
-                        <div>
-                            <label htmlFor="address" className="block text-gray-700 text-base font-medium mb-2">Адреса:</label>
-                            <input
-                                type="text"
-                                id="address"
-                                value={address}
-                                onChange={(e) => setAddress(e.target.value)}
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <div>
-                                <label htmlFor="city" className="block text-gray-700 text-base font-medium mb-2">Місто:</label>
-                                <input
-                                    type="text"
-                                    id="city"
-                                    value={city}
-                                    onChange={(e) => setCity(e.target.value)}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-                                />
-                            </div>
-                            <div>
-                                <label htmlFor="country" className="block text-gray-700 text-base font-medium mb-2">Країна:</label>
-                                <input
-                                    type="text"
-                                    id="country"
-                                    value={country}
-                                    onChange={(e) => setCountry(e.target.value)}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Поле для вибору валюти */}
-                        <div>
-                            <label htmlFor="currency" className="block text-gray-700 text-base font-medium mb-2">Основна валюта:</label>
-                            <select
-                                id="currency"
-                                value={currency}
-                                onChange={(e) => setCurrency(e.target.value)}
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base bg-white"
-                            >
-                                {availableCurrencies.map((c) => (
-                                    <option key={c.code} value={c.code}>
-                                        {c.name} ({c.symbol})
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* Можливість додати фото профілю */}
-                        <div>
-                            <label htmlFor="profilePhoto" className="block text-gray-700 text-base font-medium mb-2">Фото профілю (URL):</label>
-                            <div className="flex items-center space-x-4">
-                                {profileImageUrl ? (
-                                    <img src={profileImageUrl} alt="Profile Preview" className="h-20 w-20 rounded-full object-cover border-2 border-blue-300" />
-                                ) : (
-                                    <UserCircleIcon className="h-20 w-20 text-gray-400 rounded-full bg-gray-100 p-2" />
-                                )}
-                                <input
-                                    type="text"
-                                    id="profilePhoto"
-                                    placeholder="Вставте URL зображення профілю"
-                                    value={profileImageUrl}
-                                    onChange={(e) => setProfileImageUrl(e.target.value)}
-                                    className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-                                />
-                            </div>
-                            <p className="text-sm text-gray-500 mt-1">Ви можете вставити пряме посилання на зображення (наприклад, з Imgur, Google Photos тощо).</p>
-                        </div>
-
-
-                        {saveSuccess && (
-                            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg relative text-base" role="alert">
-                                <span className="block sm:inline">Профіль успішно збережено!</span>
-                            </div>
-                        )}
-
-                        {error && (
-                            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative text-base" role="alert">
-                                <span className="block sm:inline">{error.message}</span>
-                            </div>
-                        )}
 
                         <div className="flex justify-end mt-6">
                             <button
                                 type="submit"
-                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-lg"
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg flex items-center shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed"
                                 disabled={isSaving}
                             >
                                 {isSaving ? 'Зберігаємо...' : 'Зберегти зміни'}

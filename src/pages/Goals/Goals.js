@@ -20,8 +20,20 @@ import { Link } from 'react-router-dom';
 // URL для логотипу (посилається на файл у папці public)
 const logoUrl = "/image.png";
 
-function Goals({ db, auth, userId, userData }) { // Додано userData
+// Доступні валюти (скопійовано з Dashboard.js для послідовності)
+const currencies = [
+    { code: 'USD', name: 'United States Dollar', symbol: '$' },
+    { code: 'EUR', name: 'Euro', symbol: '€' },
+    { code: 'UAH', name: 'Українська гривня', symbol: '₴' },
+    { code: 'GBP', name: 'British Pound', symbol: '£' },
+    { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
+    { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
+    { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
+];
+
+function Goals({ db, auth, userId, userData }) {
     const [goals, setGoals] = useState([]);
+    const [accounts, setAccounts] = useState([]); // Додано стан для рахунків
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -31,16 +43,20 @@ function Goals({ db, auth, userId, userData }) { // Додано userData
 
     // Стан для форми додавання/редагування
     const [goalName, setGoalName] = useState('');
+    const [description, setDescription] = useState(''); // Нове поле: Опис
     const [targetAmount, setTargetAmount] = useState('');
     const [currentProgress, setCurrentProgress] = useState('');
     const [dueDate, setDueDate] = useState('');
+    const [currency, setCurrency] = useState('UAH'); // Нове поле: Валюта
+    const [recurrence, setRecurrence] = useState('Once'); // Нове поле: Періодичність внесків
+    const [linkedAccountId, setLinkedAccountId] = useState(''); // Нове поле: Пов'язаний рахунок
 
     // Отримання ID додатку
     const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
 
     const navigate = useNavigate();
 
-    // Завантаження цілей з Firestore
+    // Завантаження цілей та рахунків з Firestore
     useEffect(() => {
         if (!db || !userId) {
             setLoading(false);
@@ -48,8 +64,11 @@ function Goals({ db, auth, userId, userData }) { // Додано userData
         }
 
         setLoading(true);
+        const unsubscribes = [];
+
+        // Fetch Goals
         const goalsCollectionRef = collection(db, `/artifacts/${appId}/users/${userId}/goals`);
-        const unsubscribe = onSnapshot(goalsCollectionRef, (snapshot) => {
+        unsubscribes.push(onSnapshot(goalsCollectionRef, (snapshot) => {
             const fetchedGoals = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setGoals(fetchedGoals);
             setLoading(false);
@@ -57,18 +76,34 @@ function Goals({ db, auth, userId, userData }) { // Додано userData
             console.error("Goals: Помилка отримання цілей:", err);
             setError(err);
             setLoading(false);
-        });
+        }));
 
-        return () => unsubscribe();
+        // Fetch Accounts
+        const accountsCollectionRef = collection(db, `/artifacts/${appId}/users/${userId}/accounts`);
+        unsubscribes.push(onSnapshot(accountsCollectionRef, (snapshot) => {
+            const fetchedAccounts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setAccounts(fetchedAccounts);
+            setLoading(false);
+        }, (err) => {
+            console.error("Goals: Помилка отримання рахунків:", err);
+            setError(err);
+            setLoading(false);
+        }));
+
+        return () => unsubscribes.forEach(unsub => unsub());
     }, [db, userId, appId]);
 
     // Функції відкриття/закриття модального вікна
     const openModal = (goal = null) => {
         setCurrentGoal(goal);
         setGoalName(goal ? goal.name : '');
+        setDescription(goal ? goal.description || '' : ''); // Ініціалізація нового поля
         setTargetAmount(goal ? goal.targetAmount : '');
         setCurrentProgress(goal ? goal.currentProgress : '');
-        setDueDate(goal ? goal.dueDate : ''); // Дата має бути у форматі YYYY-MM-DD
+        setDueDate(goal ? goal.dueDate : '');
+        setCurrency(goal ? goal.currency || 'UAH' : 'UAH'); // Ініціалізація нового поля
+        setRecurrence(goal ? goal.recurrence || 'Once' : 'Once'); // Ініціалізація нового поля
+        setLinkedAccountId(goal ? goal.linkedAccountId || '' : ''); // Ініціалізація нового поля
         setIsModalOpen(true);
     };
 
@@ -76,25 +111,34 @@ function Goals({ db, auth, userId, userData }) { // Додано userData
         setIsModalOpen(false);
         setCurrentGoal(null);
         setGoalName('');
+        setDescription('');
         setTargetAmount('');
         setCurrentProgress('');
         setDueDate('');
+        setCurrency('UAH');
+        setRecurrence('Once');
+        setLinkedAccountId('');
+        setError(null); // Очистити помилки при закритті
     };
 
     // Обробник збереження цілі (додавання або оновлення)
     const handleSaveGoal = async (e) => {
         e.preventDefault();
-        if (!db || !userId || !goalName.trim() || isNaN(parseFloat(targetAmount)) || isNaN(parseFloat(currentProgress))) {
-            console.error("Помилка: Необхідні дані для цілі відсутні або некоректні.");
+        if (!db || !userId || !goalName.trim() || isNaN(parseFloat(targetAmount)) || isNaN(parseFloat(currentProgress)) || !currency.trim() || !recurrence.trim() || !dueDate.trim()) {
+            setError(new Error("Будь ласка, заповніть усі обов'язкові поля для цілі."));
             return;
         }
 
         setIsSaving(true);
         const goalData = {
             name: goalName.trim(),
+            description: description.trim(), // Зберігаємо нове поле
             targetAmount: parseFloat(targetAmount),
             currentProgress: parseFloat(currentProgress),
-            dueDate: dueDate, // Дата у форматі YYYY-MM-DD
+            dueDate: dueDate,
+            currency: currency, // Зберігаємо нове поле
+            recurrence: recurrence, // Зберігаємо нове поле
+            linkedAccountId: linkedAccountId, // Зберігаємо нове поле
             userId: userId,
             updatedAt: new Date().toISOString(),
             createdAt: currentGoal?.createdAt || new Date().toISOString()
@@ -123,6 +167,8 @@ function Goals({ db, auth, userId, userData }) { // Додано userData
 
     // Обробник видалення цілі
     const handleDeleteGoal = async (goalId) => {
+        // Замінено window.confirm на кастомний модал або кнопку підтвердження в UI, якщо потрібно.
+        // Для спрощення зараз використовуємо window.confirm
         if (window.confirm('Ви впевнені, що хочете видалити цю ціль?')) {
             if (!db || !userId) {
                 console.error("Firebase або ID користувача недоступні.");
@@ -163,7 +209,6 @@ function Goals({ db, auth, userId, userData }) { // Додано userData
         ? `${userData.firstName} ${userData.lastName}`
         : userData?.email || 'Користувач';
 
-
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans']">Завантаження даних...</div>;
     if (error) return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans'] text-red-500">Помилка: {error.message}</div>;
 
@@ -178,23 +223,23 @@ function Goals({ db, auth, userId, userData }) { // Додано userData
                     </div>
                     <nav className="space-y-3">
                         <Link to="/dashboard" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
-                            <HomeIcon className="h-5 w-5 mr-3" /> Dashboard
+                            <HomeIcon className="h-5 w-5 mr-3" /> Інформаційна панель
                         </Link>
                         <Link to="/budgets" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
-                            <BanknotesIcon className="h-5 w-5 mr-3" /> Budgets
+                            <BanknotesIcon className="h-5 w-5 mr-3" /> Бюджети
                         </Link>
                         <Link to="/goals" className="flex items-center text-blue-700 bg-blue-50 px-4 py-2.5 rounded-xl font-semibold transition-all duration-200 shadow-sm hover:shadow-md">
-                            <ListBulletIcon className="h-5 w-5 mr-3" /> Goals
+                            <ListBulletIcon className="h-5 w-5 mr-3" /> Наші цілі
                         </Link>
                         <Link to="/accounts" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
-                            <CreditCardIcon className="h-5 w-5 mr-3" /> Accounts
+                            <CreditCardIcon className="h-5 w-5 mr-3" /> Рахунки
                         </Link>
                         <Link to="/transactions" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
-                            <ClipboardDocumentListIcon className="h-5 w-5 mr-3" /> Transactions
+                            <ClipboardDocumentListIcon className="h-5 w-5 mr-3" /> Транзакції
                         </Link>
-                        <Link to="/categories" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
+                        {/* <Link to="/categories" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
                             <Squares2X2Icon className="h-5 w-5 mr-3" /> Categories
-                        </Link>
+                        </Link> */}
                         <Link to="/admin" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
                             <UsersIcon className="h-5 w-5 mr-3" /> Admin Panel
                         </Link>
@@ -251,8 +296,12 @@ function Goals({ db, auth, userId, userData }) { // Додано userData
                             <thead className="bg-gray-50">
                                 <tr>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Назва</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Опис</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Цільова сума</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Прогрес</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Валюта</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Періодичність</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Рахунок</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Дата завершення</th>
                                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Дії</th>
                                 </tr>
@@ -260,33 +309,41 @@ function Goals({ db, auth, userId, userData }) { // Додано userData
                             <tbody className="bg-white divide-y divide-gray-200">
                                 {goals.length === 0 ? (
                                     <tr>
-                                        <td colSpan="5" className="px-6 py-4 text-center text-gray-500 text-base">Цілей не знайдено.</td>
+                                        <td colSpan="9" className="px-6 py-4 text-center text-gray-500 text-base">Цілей не знайдено.</td>
                                     </tr>
                                 ) : (
-                                    goals.map((goal) => (
-                                        <tr key={goal.id}>
-                                            <td className="px-6 py-4 text-base font-medium text-gray-900 flex items-center">
-                                                <FlagIcon className="h-5 w-5 mr-2 text-blue-600" />
-                                                {goal.name}
-                                            </td>
-                                            <td className="px-6 py-4 text-base text-gray-900">{goal.targetAmount.toFixed(2)} ₴</td>
-                                            <td className="px-6 py-4 text-base text-gray-900">
-                                                {goal.currentProgress.toFixed(2)} ₴ ({( (goal.currentProgress / goal.targetAmount) * 100).toFixed(1)}%)
-                                                <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mt-1">
-                                                    <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${(goal.currentProgress / goal.targetAmount) * 100}%` }}></div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-base text-gray-900">{goal.dueDate}</td>
-                                            <td className="px-6 py-4 text-right space-x-2">
-                                                <button onClick={() => openModal(goal)} className="text-blue-600 hover:text-blue-800 p-2 rounded-md hover:bg-blue-50 transition-colors duration-200">
-                                                    <PencilIcon className="h-5 w-5 inline" />
-                                                </button>
-                                                <button onClick={() => handleDeleteGoal(goal.id)} className="text-red-600 hover:text-red-800 p-2 rounded-md hover:bg-red-50 transition-colors duration-200">
-                                                    <TrashIcon className="h-5 w-5 inline" />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))
+                                    goals.map((goal) => {
+                                        const currencySymbol = currencies.find(c => c.code === goal.currency)?.symbol || '';
+                                        const linkedAccountName = accounts.find(acc => acc.id === goal.linkedAccountId)?.name || 'Не вказано';
+                                        return (
+                                            <tr key={goal.id}>
+                                                <td className="px-6 py-4 text-base font-medium text-gray-900 flex items-center">
+                                                    <FlagIcon className="h-5 w-5 mr-2 text-blue-600" />
+                                                    {goal.name}
+                                                </td>
+                                                <td className="px-6 py-4 text-base text-gray-900 max-w-xs overflow-hidden text-ellipsis whitespace-nowrap" title={goal.description}>{goal.description || '—'}</td>
+                                                <td className="px-6 py-4 text-base text-gray-900">{currencySymbol}{goal.targetAmount.toFixed(2)}</td>
+                                                <td className="px-6 py-4 text-base text-gray-900">
+                                                    {currencySymbol}{goal.currentProgress.toFixed(2)} ({( (goal.currentProgress / goal.targetAmount) * 100).toFixed(1)}%)
+                                                    <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mt-1">
+                                                        <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${(goal.currentProgress / goal.targetAmount) * 100}%` }}></div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-base text-gray-900">{goal.currency}</td>
+                                                <td className="px-6 py-4 text-base text-gray-900">{goal.recurrence || 'Once'}</td>
+                                                <td className="px-6 py-4 text-base text-gray-900">{linkedAccountName}</td>
+                                                <td className="px-6 py-4 text-base text-gray-900">{goal.dueDate}</td>
+                                                <td className="px-6 py-4 text-right space-x-2">
+                                                    <button onClick={() => openModal(goal)} className="text-blue-600 hover:text-blue-800 p-2 rounded-md hover:bg-blue-50 transition-colors duration-200">
+                                                        <PencilIcon className="h-5 w-5 inline" />
+                                                    </button>
+                                                    <button onClick={() => handleDeleteGoal(goal.id)} className="text-red-600 hover:text-red-800 p-2 rounded-md hover:bg-red-50 transition-colors duration-200">
+                                                        <TrashIcon className="h-5 w-5 inline" />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>
@@ -296,7 +353,7 @@ function Goals({ db, auth, userId, userData }) { // Додано userData
                 {/* Modal для додавання/редагування цілі */}
                 {isModalOpen && (
                     <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50 p-4">
-                        <div className="bg-white p-7 rounded-2xl shadow-xl w-full max-w-lg relative">
+                        <div className="bg-white p-7 rounded-2xl shadow-xl w-full max-w-md relative max-h-[90vh] overflow-y-auto"> {/* Змінено max-w-lg на max-w-md та додано max-h та overflow */}
                             <button
                                 onClick={closeModal}
                                 className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition-colors"
@@ -304,27 +361,65 @@ function Goals({ db, auth, userId, userData }) { // Додано userData
                                 <XMarkIcon className="h-7 w-7" />
                             </button>
                             <h2 className="text-2xl font-bold text-gray-800 mb-5">{currentGoal ? 'Редагувати' : 'Нова'} ціль</h2>
-                            <form onSubmit={handleSaveGoal} className="space-y-4">
+                            {error && (
+                                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+                                    <span className="block sm:inline">{error.message}</span>
+                                </div>
+                            )}
+                            <form onSubmit={handleSaveGoal} className="space-y-3"> {/* Зменшено space-y-4 на space-y-3 */}
                                 <label className="block">
-                                    <span className="text-gray-700 font-medium text-base">Назва цілі:</span>
-                                    <input type="text" value={goalName} onChange={(e) => setGoalName(e.target.value)} required className="mt-1 block w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" />
+                                    <span className="text-gray-700 font-medium text-sm">Назва цілі:</span> {/* Зменшено text-base на text-sm */}
+                                    <input type="text" value={goalName} onChange={(e) => setGoalName(e.target.value)} required className="mt-1 block w-full border border-gray-300 p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" /> {/* Зменшено p-3 на p-2.5 та text-base на text-sm */}
                                 </label>
                                 <label className="block">
-                                    <span className="text-gray-700 font-medium text-base">Цільова сума:</span>
-                                    <input type="number" step="0.01" value={targetAmount} onChange={(e) => setTargetAmount(e.target.value)} required className="mt-1 block w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" />
+                                    <span className="text-gray-700 font-medium text-sm">Опис:</span>
+                                    <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows="2" className="mt-1 block w-full border border-gray-300 p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"></textarea> {/* Зменшено rows="3" на rows="2" */}
                                 </label>
                                 <label className="block">
-                                    <span className="text-gray-700 font-medium text-base">Поточний прогрес:</span>
-                                    <input type="number" step="0.01" value={currentProgress} onChange={(e) => setCurrentProgress(e.target.value)} required className="mt-1 block w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" />
+                                    <span className="text-gray-700 font-medium text-sm">Цільова сума:</span>
+                                    <input type="number" step="0.01" value={targetAmount} onChange={(e) => setTargetAmount(e.target.value)} required className="mt-1 block w-full border border-gray-300 p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
                                 </label>
                                 <label className="block">
-                                    <span className="text-gray-700 font-medium text-base">Дата завершення:</span>
-                                    <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} required className="mt-1 block w-full border border-gray-300 p-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base" />
+                                    <span className="text-gray-700 font-medium text-sm">Валюта:</span>
+                                    <select value={currency} onChange={(e) => setCurrency(e.target.value)} required className="mt-1 block w-full border border-gray-300 p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                        {currencies.map(c => (
+                                            <option key={c.code} value={c.code}>{c.name} ({c.symbol})</option>
+                                        ))}
+                                    </select>
                                 </label>
-                                <div className="flex justify-end space-x-3 mt-6">
+                                <label className="block">
+                                    <span className="text-gray-700 font-medium text-sm">Поточний прогрес:</span>
+                                    <input type="number" step="0.01" value={currentProgress} onChange={(e) => setCurrentProgress(e.target.value)} required className="mt-1 block w-full border border-gray-300 p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                                </label>
+                                <label className="block">
+                                    <span className="text-gray-700 font-medium text-sm">Періодичність внесків:</span>
+                                    <select value={recurrence} onChange={(e) => setRecurrence(e.target.value)} required className="mt-1 block w-full border border-gray-300 p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                        <option value="Once">Одноразово</option>
+                                        <option value="Daily">Щоденно</option>
+                                        <option value="Weekly">Щотижня</option>
+                                        <option value="Biweekly">Раз на два тижні</option>
+                                        <option value="Monthly">Щомісяця</option>
+                                        <option value="Quarterly">Щоквартально</option>
+                                        <option value="Yearly">Щорічно</option>
+                                    </select>
+                                </label>
+                                <label className="block">
+                                    <span className="text-gray-700 font-medium text-sm">Пов'язаний рахунок:</span>
+                                    <select value={linkedAccountId} onChange={(e) => setLinkedAccountId(e.target.value)} className="mt-1 block w-full border border-gray-300 p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                                        <option value="">Не обрано</option>
+                                        {accounts.map(acc => (
+                                            <option key={acc.id} value={acc.id}>{acc.name} ({currencies.find(c => c.code === acc.currency)?.symbol}{acc.balance.toFixed(2)})</option>
+                                        ))}
+                                    </select>
+                                </label>
+                                <label className="block">
+                                    <span className="text-gray-700 font-medium text-sm">Дата завершення:</span>
+                                    <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} required className="mt-1 block w-full border border-gray-300 p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
+                                </label>
+                                <div className="flex justify-end space-x-3 mt-4"> {/* Зменшено mt-6 на mt-4 */}
                                     <button
                                         type="submit"
-                                        className="bg-blue-600 text-white px-6 py-2.5 rounded-lg disabled:opacity-50 hover:bg-blue-700 transition-colors duration-200 text-base font-semibold"
+                                        className="bg-blue-600 text-white px-5 py-2 rounded-lg disabled:opacity-50 hover:bg-blue-700 transition-colors duration-200 text-sm font-semibold"
                                         disabled={isSaving}
                                     >
                                         {isSaving ? 'Зберігаємо...' : 'Зберегти'}
@@ -332,7 +427,7 @@ function Goals({ db, auth, userId, userData }) { // Додано userData
                                     <button
                                         type="button"
                                         onClick={closeModal}
-                                        className="bg-gray-200 text-gray-800 px-6 py-2.5 rounded-lg hover:bg-gray-300 transition-colors duration-200 text-base font-semibold"
+                                        className="bg-gray-200 text-gray-800 px-5 py-2 rounded-lg hover:bg-gray-300 transition-colors duration-200 text-sm font-semibold"
                                     >
                                         Скасувати
                                     </button>

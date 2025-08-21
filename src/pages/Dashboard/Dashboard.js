@@ -557,19 +557,19 @@ function Dashboard({ db, auth, userId, userData }) { // Додано userData
 </Link>
                     <nav className="space-y-3">
                         <Link to="/dashboard" className="flex items-center text-blue-700 bg-blue-50 px-4 py-2.5 rounded-xl font-semibold transition-all duration-200 shadow-sm hover:shadow-md">
-                            <HomeIcon className="h-5 w-5 mr-3" /> Dashboard
+                            <HomeIcon className="h-5 w-5 mr-3" /> Інформаційна панель
                         </Link>
                         <Link to="/budgets" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
-                            <BanknotesIcon className="h-5 w-5 mr-3" /> Budgets
+                            <BanknotesIcon className="h-5 w-5 mr-3" /> Бюджети
                         </Link>
                         <Link to="/goals" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
-                            <ListBulletIcon className="h-5 w-5 mr-3" /> Goals
+                            <ListBulletIcon className="h-5 w-5 mr-3" /> Цілі
                         </Link>
                         <Link to="/accounts" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
-                            <CreditCardIcon className="h-5 w-5 mr-3" /> Accounts
+                            <CreditCardIcon className="h-5 w-5 mr-3" /> Рахунки
                         </Link>
                         <Link to="/transactions" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
-                            <ClipboardDocumentListIcon className="h-5 w-5 mr-3" /> Transactions
+                            <ClipboardDocumentListIcon className="h-5 w-5 mr-3" /> Транзакції
                         </Link>
                         {/* Categories link removed as per request */}
                         {userId === ADMIN_USER_ID && ( // Conditional rendering for Admin Panel link

@@ -218,23 +218,23 @@ function Budgets({ db, auth, userId, userData }) {
                     </div>
                     <nav className="space-y-4">
                         <Link to="/dashboard" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
-                            <HomeIcon className="h-5 w-5 mr-3" /> Dashboard
+                            <HomeIcon className="h-5 w-5 mr-3" /> Інформаційна панель
                         </Link>
                         <Link to="/budgets" className="flex items-center text-blue-600 bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
                             <BanknotesIcon className="h-5 w-5 mr-3" /> Бюджети
                         </Link>
                         <Link to="/goals" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
-                            <ListBulletIcon className="h-5 w-5 mr-3" /> Goals
+                            <ListBulletIcon className="h-5 w-5 mr-3" /> Наші цілі
                         </Link>
                         <Link to="/accounts" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
-                            <CreditCardIcon className="h-5 w-5 mr-3" /> Accounts
+                            <CreditCardIcon className="h-5 w-5 mr-3" /> Рахунки
                         </Link>
                         <Link to="/transactions" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
-                            <ClipboardDocumentListIcon className="h-5 w-5 mr-3" /> Transactions
+                            <ClipboardDocumentListIcon className="h-5 w-5 mr-3" /> Транзакції
                         </Link>
-                        <Link to="/categories" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                        {/* <Link to="/categories" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
                             <Squares2X2Icon className="h-5 w-5 mr-3" /> Categories
-                        </Link>
+                        </Link> */}
                     </nav>
                 </div>
             </aside>
@@ -300,7 +300,7 @@ function Budgets({ db, auth, userId, userData }) {
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {budgets.map(budget => {
                                         const progress = (budget.spent / budget.limit) * 100;
-                                        const progressColor = progress > 100 ? 'bg-red-500' : 'bg-green-500';
+                                        const progressColor = progress > 100 ? 'bg-red-500' : 'bg-green-500'; // Використовуємо кольори Tailwind
                                         return (
                                             <tr key={budget.id} className="hover:bg-[#EBF8FF] transition-colors duration-150">
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{budget.name}</td>
@@ -359,7 +359,7 @@ function Budgets({ db, auth, userId, userData }) {
                 {/* Create Budget Modal */}
                 {showCreateModal && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white p-7 rounded-2xl shadow-xl max-w-md w-full relative">
+                        <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md relative max-h-[90vh] overflow-y-auto">
                             <button
                                 onClick={() => setShowCreateModal(false)}
                                 className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition-colors"
@@ -369,11 +369,11 @@ function Budgets({ db, auth, userId, userData }) {
                             <h2 className="text-2xl font-bold text-gray-800 mb-5 text-center">Створити новий бюджет</h2>
 
                             {/* General Info */}
-                            <div className="mb-6">
-                                <h3 className="text-lg font-semibold text-gray-700 mb-3 flex items-center">
-                                    <BanknotesIcon className="h-6 w-6 mr-2 text-green-500" /> Загальна інформація
+                            <div className="mb-4 space-y-3">
+                                <h3 className="text-lg font-semibold text-gray-700 mb-2 flex items-center">
+                                    <BanknotesIcon className="h-5 w-5 mr-2 text-green-500" /> Загальна інформація
                                 </h3>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label htmlFor="newBudgetName" className="block text-sm font-medium text-gray-700 mb-1">Назва бюджету</label>
                                         <input
@@ -382,7 +382,7 @@ function Budgets({ db, auth, userId, userData }) {
                                             placeholder="Напр. 'Продукти'"
                                             value={newBudget.name}
                                             onChange={e => setNewBudget({ ...newBudget, name: e.target.value })}
-                                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                                             required
                                         />
                                     </div>
@@ -395,7 +395,7 @@ function Budgets({ db, auth, userId, userData }) {
                                             value={newBudget.limit === 0 ? '' : newBudget.limit}
                                             onChange={e => setNewBudget({ ...newBudget, limit: parseFloat(e.target.value) || 0 })}
                                             step="0.01"
-                                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                                             required
                                         />
                                     </div>
@@ -405,7 +405,7 @@ function Budgets({ db, auth, userId, userData }) {
                                             id="newBudgetCurrency"
                                             value={newBudget.currency}
                                             onChange={e => setNewBudget({ ...newBudget, currency: e.target.value })}
-                                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                                             required
                                         >
                                             {currencies.map(c => (
@@ -417,9 +417,9 @@ function Budgets({ db, auth, userId, userData }) {
                             </div>
 
                             {/* Budget Filter */}
-                            <div className="mb-6">
-                                <h3 className="text-lg font-semibold text-gray-700 mb-3 flex items-center">
-                                    <FunnelIcon className="h-6 w-6 mr-2 text-orange-500" /> Фільтр бюджету
+                            <div className="mb-4 space-y-3">
+                                <h3 className="text-lg font-semibold text-gray-700 mb-2 flex items-center">
+                                    <FunnelIcon className="h-5 w-5 mr-2 text-orange-500" /> Фільтр бюджету
                                 </h3>
                                 <div>
                                     <label htmlFor="newBudgetCategory" className="block text-sm font-medium text-gray-700 mb-1">Бюджет для</label>
@@ -427,7 +427,7 @@ function Budgets({ db, auth, userId, userData }) {
                                         id="newBudgetCategory"
                                         value={newBudget.category}
                                         onChange={e => setNewBudget({ ...newBudget, category: e.target.value })}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                                     >
                                         {availableCategories.map(cat => (
                                             <option key={cat} value={cat}>{cat}</option>
@@ -437,17 +437,17 @@ function Budgets({ db, auth, userId, userData }) {
                             </div>
 
                             {/* Budget Period */}
-                            <div className="mb-6">
-                                <h3 className="text-lg font-semibold text-gray-700 mb-3 flex items-center">
-                                    <CalendarDaysIcon className="h-6 w-6 mr-2 text-purple-500" /> Період бюджету
+                            <div className="mb-4 space-y-3">
+                                <h3 className="text-lg font-semibold text-gray-700 mb-2 flex items-center">
+                                    <CalendarDaysIcon className="h-5 w-5 mr-2 text-purple-500" /> Період бюджету
                                 </h3>
-                                <div className="flex flex-wrap gap-2 mb-4">
+                                <div className="flex flex-wrap gap-2 mb-2">
                                     {['Once', 'Daily', 'Weekly', 'Biweekly', 'Monthly', 'Yearly'].map(period => (
                                         <button
                                             key={period}
                                             type="button"
                                             onClick={() => setNewBudget({ ...newBudget, recurrence: period })}
-                                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors duration-200
                                                 ${newBudget.recurrence === period ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}
                                             `}
                                         >
@@ -467,22 +467,22 @@ function Budgets({ db, auth, userId, userData }) {
                                         type="date"
                                         value={newBudget.startDate}
                                         onChange={e => setNewBudget({ ...newBudget, startDate: e.target.value })}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                                         required
                                     />
                                 </div>
                             </div>
 
-                            <div className="flex justify-end space-x-4 mt-6">
+                            <div className="flex justify-end space-x-3 mt-4">
                                 <button
                                     onClick={() => setShowCreateModal(false)}
-                                    className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors duration-200"
+                                    className="px-5 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors duration-200 text-sm"
                                 >
                                     Скасувати
                                 </button>
                                 <button
                                     onClick={handleCreate}
-                                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                                    className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm"
                                 >
                                     Створити бюджет
                                 </button>
@@ -494,7 +494,7 @@ function Budgets({ db, auth, userId, userData }) {
                 {/* Edit Budget Modal */}
                 {showEditModal && selectedBudget && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white p-7 rounded-2xl shadow-xl max-w-md w-full relative">
+                        <div className="bg-white p-6 rounded-2xl shadow-xl max-w-md w-full relative max-h-[90vh] overflow-y-auto">
                             <button
                                 onClick={() => { setShowEditModal(false); setSelectedBudget(null); }}
                                 className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition-colors"
@@ -502,7 +502,7 @@ function Budgets({ db, auth, userId, userData }) {
                                 <XMarkIcon className="h-7 w-7" />
                             </button>
                             <h2 className="text-2xl font-bold text-gray-800 mb-5">Редагувати бюджет</h2>
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                                 <div>
                                     <label htmlFor="editBudgetName" className="block text-sm font-medium text-gray-700 mb-1">Назва</label>
                                     <input
@@ -510,7 +510,7 @@ function Budgets({ db, auth, userId, userData }) {
                                         type="text"
                                         value={editBudget.name}
                                         onChange={e => setEditBudget({ ...editBudget, name: e.target.value })}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                                         required
                                     />
                                 </div>
@@ -522,7 +522,7 @@ function Budgets({ db, auth, userId, userData }) {
                                         value={editBudget.limit}
                                         onChange={e => setEditBudget({ ...editBudget, limit: parseFloat(e.target.value) || 0 })}
                                         step="0.01"
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                                         required
                                     />
                                 </div>
@@ -535,7 +535,7 @@ function Budgets({ db, auth, userId, userData }) {
                                         value={editBudget.spent}
                                         onChange={e => setEditBudget({ ...editBudget, spent: parseFloat(e.target.value) || 0 })}
                                         step="0.01"
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                                         required
                                     />
                                 </div>
@@ -550,13 +550,13 @@ function Budgets({ db, auth, userId, userData }) {
                                             value={amountToCredit}
                                             onChange={e => setAmountToCredit(e.target.value)}
                                             step="0.01"
-                                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                                         />
                                     </div>
                                     <button
                                         type="button"
                                         onClick={handleCreditAmount}
-                                        className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
+                                        className="px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 text-sm"
                                     >
                                         Зарахувати
                                     </button>
@@ -568,7 +568,7 @@ function Budgets({ db, auth, userId, userData }) {
                                         id="editBudgetCategory"
                                         value={editBudget.category}
                                         onChange={e => setEditBudget({ ...editBudget, category: e.target.value })}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                                     >
                                         {availableCategories.map(cat => (
                                             <option key={cat} value={cat}>{cat}</option>
@@ -581,7 +581,7 @@ function Budgets({ db, auth, userId, userData }) {
                                         id="editBudgetCurrency"
                                         value={editBudget.currency}
                                         onChange={e => setEditBudget({ ...editBudget, currency: e.target.value })}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                                         required
                                     >
                                         {currencies.map(c => (
@@ -597,7 +597,7 @@ function Budgets({ db, auth, userId, userData }) {
                                                 key={period}
                                                 type="button"
                                                 onClick={() => setEditBudget({ ...editBudget, recurrence: period })}
-                                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors duration-200
                                                     ${editBudget.recurrence === period ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}
                                                 `}
                                             >
@@ -618,21 +618,21 @@ function Budgets({ db, auth, userId, userData }) {
                                         type="date"
                                         value={editBudget.startDate}
                                         onChange={e => setEditBudget({ ...editBudget, startDate: e.target.value })}
-                                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                                         required
                                     />
                                 </div>
                             </div>
-                            <div className="flex justify-end gap-2 mt-6">
+                            <div className="flex justify-end gap-2 mt-4">
                                 <button
                                     onClick={() => { setShowEditModal(false); setSelectedBudget(null); }}
-                                    className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors duration-200"
+                                    className="px-5 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors duration-200 text-sm"
                                 >
                                     Скасувати
                                 </button>
                                 <button
                                     onClick={handleEdit}
-                                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                                    className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm"
                                 >
                                     Зберегти
                                 </button>

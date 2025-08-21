@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
     AcademicCapIcon, ChartPieIcon, CheckCircleIcon,
-    ShieldCheckIcon, RocketLaunchIcon, UserGroupIcon // Нові іконки для підкреслення функціональності
+    ShieldCheckIcon, RocketLaunchIcon, UserGroupIcon
 } from '@heroicons/react/24/outline';
 
 const logoUrl = "/image.png";
@@ -24,7 +24,7 @@ function LandingPage() {
                 </div>
             </header>
 
-            {/* Секція Героя */}
+
             <section className="relative py-24 md:py-40 text-center overflow-hidden">
                 <div className="absolute inset-0 z-0">
                     {/* Приклад тонких фонових градієнтів та форм */}
@@ -48,8 +48,7 @@ function LandingPage() {
                         </Link>
                     </div>
 
-                    {/* Початково тут було зображення "Сучасний інтерфейс APEX FINANCE" та кнопки магазинів додатків */}
-                    {/* Секція "Наші засновники" (переміщена сюди з низу) */}
+
                     <div className="mt-20 animate-fade-in-up animation-delay-1500 py-16 bg-white bg-opacity-80 rounded-3xl shadow-2xl border-2 border-blue-200">
                         <h2 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-16 px-6">
                             Наші засновники
@@ -57,11 +56,10 @@ function LandingPage() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-12 px-6">
                             {/* Засновник 1 */}
                             <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 transform hover:scale-[1.03] transition-transform duration-300">
-                                {/* Оновлене зображення для Назарія Горбачука */}
                                 <img src="/1755782105149.jpg" alt="Назарій Горбачук" className="h-32 w-32 rounded-full mx-auto mb-6 border-4 border-indigo-400 object-cover" />
                                 <h3 className="font-bold text-2xl text-gray-900 mb-2">Назарій Горбачук</h3>
                                 <p className="text-indigo-600 font-semibold mb-4">Головний виконавчий директор (CEO)</p>
-                                <p className="text-lg text-gray-700">Назарій Вікторович- візіонер, який керує стратегією та інноваціями APEX FINANCE, зосереджуючись на створенні зручних фінансових рішень.</p>
+                                <p className="text-lg text-gray-700">Назарій Вікторович - візіонер, який керує стратегією та інноваціями APEX FINANCE, зосереджуючись на створенні зручних фінансових рішень.</p>
                             </div>
                             {/* Засновник 2 */}
                             <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 transform hover:scale-[1.03] transition-transform duration-300">

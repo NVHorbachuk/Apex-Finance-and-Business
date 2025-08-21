@@ -1,284 +1,307 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
-    PlusCircleIcon,
-    PencilIcon,
-    TrashIcon,
-    MagnifyingGlassIcon,
-    XMarkIcon // Додано для закриття модального вікна
-} from '@heroicons/react/24/outline';
+    HomeIcon, ClipboardDocumentListIcon, BanknotesIcon, CreditCardIcon, ListBulletIcon,
+    UserCircleIcon, PlusIcon, PencilIcon, TrashIcon, ExclamationTriangleIcon,
+    ChevronDownIcon, MagnifyingGlassIcon, FunnelIcon, CalendarDaysIcon, XMarkIcon
+} from "@heroicons/react/24/outline";
+import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, where } from "firebase/firestore";
+import { signOut } from 'firebase/auth';
 
-// Імпорт функцій Firestore
-import { collection, onSnapshot, doc, runTransaction } from 'firebase/firestore'; 
-
-// Імпорт компонентів бічної панелі та хедера
-import { HomeIcon, ClipboardDocumentListIcon, BellIcon, UserCircleIcon, ChevronDownIcon, BanknotesIcon, CreditCardIcon, Squares2X2Icon, ListBulletIcon } from '@heroicons/react/24/outline';
-import { Link } from 'react-router-dom';
-
-// URL для логотипу (посилається на файл у папці public)
 const logoUrl = "/image.png";
 
-// Новий список категорій за замовчуванням
-const DEFAULT_CATEGORIES = [
-    'Їжа',
-    'Транспорт',
-    'Житло',
-    'Розваги',
-    'Одяг',
-    'Здоров\'я',
-    'Освіта',
-    'Подорожі',
-    'Комунальні послуги',
-    'Інше'
+const currencies = [
+    { code: 'USD', name: 'United States Dollar', symbol: '$' },
+    { code: 'EUR', name: 'Euro', symbol: '€' },
+    { code: 'UAH', name: 'Українська гривня', symbol: '₴' },
+    { code: 'GBP', name: 'British Pound', symbol: '£' },
+    { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
+    { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
+    { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
 ];
 
-function Transactions({ db, auth, userId }) {
-    // Стан для транзакцій, рахунків та категорій, отриманих з Firestore
+function Transactions({ db, auth, userId, userData }) {
     const [transactions, setTransactions] = useState([]);
-    const [accounts, setAccounts] = useState([]); // Дані рахунків з Firestore
-    const [categories, setCategories] = useState([]); // Дані категорій з Firestore
+    const [filteredTransactions, setFilteredTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // Стан для модального вікна форми транзакції
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [currentTransaction, setCurrentTransaction] = useState(null); // Для редагування
-    const [isSaving, setIsSaving] = useState(false); // Для індикатора збереження/оновлення
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-    // Стан для модального вікна підтвердження видалення
-    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-    const [transactionToDelete, setTransactionToDelete] = useState(null);
+    const [newTransaction, setNewTransaction] = useState({
+        description: "",
+        amount: "",
+        type: "expense", // 'income' or 'expense'
+        category: "Other",
+        date: new Date().toISOString().substring(0, 10),
+        currency: "UAH",
+        account: "" // Will be set to the first available account or require user selection
+    });
+    const [editTransaction, setEditTransaction] = useState(null);
+    const [selectedTransaction, setSelectedTransaction] = useState(null);
 
-    // Стан для фільтрів та пошуку
-    const [searchTerm, setSearchTerm] = useState('');
-    const [filterCategory, setFilterCategory] = useState('');
-    const [filterAccount, setFilterAccount] = useState('');
-    const [filterType, setFilterType] = useState('');
+    const [accounts, setAccounts] = useState([]); // For account dropdown
 
-    // Отримання ID додатку
+    // Filters and sorting
+    const [searchTerm, setSearchTerm] = useState("");
+    const [filterType, setFilterType] = useState("all"); // 'all', 'income', 'expense'
+    const [filterCategory, setFilterCategory] = useState("all"); // 'all' or specific category
+    const [filterStartDate, setFilterStartDate] = useState("");
+    const [filterEndDate, setFilterEndDate] = useState("");
+    const [sortBy, setSortBy] = useState("date"); // 'date' or 'amount'
+    const [sortOrder, setSortOrder] = useState("desc"); // 'asc' or 'desc'
+
+    const [availableCategories, setAvailableCategories] = useState([]);
+
     const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
+    const navigate = useNavigate();
 
-    // Функції відкриття/закриття модальних вікон
-    const openTransactionModal = (transaction = null) => {
-        setCurrentTransaction(transaction);
-        setIsModalOpen(true);
-    };
-
-    const closeTransactionModal = () => {
-        setIsModalOpen(false);
-        setCurrentTransaction(null);
-    };
-
-    const openConfirmModal = (transaction) => {
-        setTransactionToDelete(transaction);
-        setIsConfirmModalOpen(true);
-    };
-
-    const closeConfirmModal = () => {
-        setIsConfirmModalOpen(false);
-        setTransactionToDelete(null);
-    };
-
-    // --- useEffect для завантаження даних з Firestore ---
+    // Fetch transactions and accounts from Firestore
     useEffect(() => {
         if (!db || !userId) {
-            setLoading(false); // Немає db або userId, не можемо завантажувати
+            setLoading(false);
             return;
         }
 
-        setLoading(true);
+        const unsubscribes = [];
 
-        // 1. Отримання рахунків
+        // Fetch accounts
         const accountsCollectionRef = collection(db, `/artifacts/${appId}/users/${userId}/accounts`);
-        const unsubscribeAccounts = onSnapshot(accountsCollectionRef, (snapshot) => {
+        unsubscribes.push(onSnapshot(accountsCollectionRef, (snapshot) => {
             const fetchedAccounts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setAccounts(fetchedAccounts);
-        }, (err) => {
-            console.error("Transactions: Помилка отримання рахунків:", err);
-            setError(err);
-        });
-
-        // 2. Отримання категорій (припустимо, вони також зберігаються користувачем)
-        const categoriesCollectionRef = collection(db, `/artifacts/${appId}/users/${userId}/categories`);
-        const unsubscribeCategories = onSnapshot(categoriesCollectionRef, (snapshot) => {
-            const fetchedCategories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            
-            // Якщо категорії не завантажені з Firestore, використовуємо значення за замовчуванням
-            if (fetchedCategories.length === 0) {
-                setCategories(DEFAULT_CATEGORIES); // Використовуємо DEFAULT_CATEGORIES
-            } else {
-                setCategories(fetchedCategories.map(cat => cat.name));
+            // Set default account for new transaction if available
+            if (fetchedAccounts.length > 0 && !newTransaction.account) {
+                setNewTransaction(prev => ({ ...prev, account: fetchedAccounts[0].id }));
             }
         }, (err) => {
-            console.error("Transactions: Помилка отримання категорій:", err);
+            console.error("Transactions.js: Помилка отримання рахунків:", err);
             setError(err);
-        });
+        }));
 
-
-        // 3. Отримання транзакцій
+        // Fetch transactions
         const transactionsCollectionRef = collection(db, `/artifacts/${appId}/users/${userId}/transactions`);
-        const unsubscribeTransactions = onSnapshot(transactionsCollectionRef, (snapshot) => {
+        unsubscribes.push(onSnapshot(transactionsCollectionRef, (snapshot) => {
             const fetchedTransactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setTransactions(fetchedTransactions);
+
+            const uniqueCategories = new Set();
+            fetchedTransactions.forEach(t => {
+                if (t.category && t.category !== 'All categories') uniqueCategories.add(t.category);
+            });
+            setAvailableCategories(Array.from(uniqueCategories));
             setLoading(false);
         }, (err) => {
-            console.error("Transactions: Помилка отримання транзакцій:", err);
+            console.error("Transactions.js: Помилка отримання транзакцій:", err);
             setError(err);
             setLoading(false);
-        });
+        }));
 
-        // Очищення підписок при розмонтуванні компонента
-        return () => {
-            unsubscribeAccounts();
-            unsubscribeCategories();
-            unsubscribeTransactions();
-        };
+        return () => unsubscribes.forEach(unsub => unsub());
     }, [db, userId, appId]);
 
-    // --- Обробники Firestore операцій ---
+    // Apply filters and sorting
+    useEffect(() => {
+        let tempTransactions = [...transactions];
 
-    // Функція для додавання/оновлення транзакції
-    const handleSaveTransaction = async (e) => {
-        e.preventDefault();
-        if (!db || !userId) {
-            console.error("Firebase або ID користувача недоступні.");
+        // Search
+        if (searchTerm) {
+            tempTransactions = tempTransactions.filter(t =>
+                t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                t.category.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+        }
+
+        // Filter by type
+        if (filterType !== "all") {
+            tempTransactions = tempTransactions.filter(t => t.type === filterType);
+        }
+
+        // Filter by category
+        if (filterCategory !== "all") {
+            tempTransactions = tempTransactions.filter(t => t.category === filterCategory);
+        }
+
+        // Filter by date range
+        if (filterStartDate) {
+            tempTransactions = tempTransactions.filter(t => t.date >= filterStartDate);
+        }
+        if (filterEndDate) {
+            tempTransactions = tempTransactions.filter(t => t.date <= filterEndDate);
+        }
+
+        // Sort
+        tempTransactions.sort((a, b) => {
+            let valA, valB;
+            if (sortBy === "date") {
+                valA = new Date(a.date);
+                valB = new Date(b.date);
+            } else if (sortBy === "amount") {
+                valA = parseFloat(a.amount);
+                valB = parseFloat(b.amount);
+            }
+            return sortOrder === "asc" ? valA - valB : valB - valA;
+        });
+
+        setFilteredTransactions(tempTransactions);
+    }, [transactions, searchTerm, filterType, filterCategory, filterStartDate, filterEndDate, sortBy, sortOrder]);
+
+    const handleAddTransaction = async () => {
+        if (!db || !userId || !newTransaction.description.trim() || isNaN(parseFloat(newTransaction.amount)) || !newTransaction.date.trim() || !newTransaction.account) {
+            setError(new Error("Будь ласка, заповніть усі обов'язкові поля."));
             return;
         }
 
-        setIsSaving(true);
-        const formData = new FormData(e.target);
-        const newTransactionData = {
-            date: formData.get('date'),
-            description: formData.get('description'),
-            amount: parseFloat(formData.get('amount')),
-            category: formData.get('category'),
-            accountId: formData.get('account'), // Змінено на accountId для посилання на ID рахунку
-            type: formData.get('type'),
-            userId: userId, // Переконайтеся, що userId завжди зберігається з транзакцією
-            createdAt: currentTransaction?.createdAt || new Date().toISOString(), // Зберігаємо час створення
-            updatedAt: new Date().toISOString() // Оновлюємо час оновлення
-        };
-
-        const accountDocRef = doc(db, `/artifacts/${appId}/users/${userId}/accounts`, newTransactionData.accountId);
-
         try {
-            await runTransaction(db, async (transactionFirestore) => {
-                const accountDoc = await transactionFirestore.get(accountDocRef);
+            const amount = parseFloat(newTransaction.amount);
+            const transactionAmount = newTransaction.type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
 
-                if (!accountDoc.exists()) {
-                    throw new Error("Рахунок не існує!"); // Виправлено: кидаємо об'єкт Error
-                }
-
-                let newAccountBalance = accountDoc.data().balance;
-                let oldAmount = 0; // Для редагування
-
-                if (currentTransaction) {
-                    // Якщо редагуємо, спочатку відкатуємо стару суму
-                    oldAmount = currentTransaction.amount;
-                    if (currentTransaction.type === 'expense') {
-                        newAccountBalance += oldAmount; // Додаємо назад стару витрату
-                    } else { // income
-                        newAccountBalance -= oldAmount; // Віднімаємо старий дохід
-                    }
-                }
-
-                // Застосовуємо нову суму
-                if (newTransactionData.type === 'expense') {
-                    newAccountBalance -= newTransactionData.amount;
-                } else { // income
-                    newAccountBalance += newTransactionData.amount;
-                }
-
-                transactionFirestore.update(accountDocRef, { balance: newAccountBalance });
-
-                if (currentTransaction) {
-                    // Оновлення існуючої транзакції
-                    const transactionRef = doc(db, `/artifacts/${appId}/users/${userId}/transactions`, currentTransaction.id);
-                    transactionFirestore.update(transactionRef, newTransactionData);
-                } else {
-                    // Додавання нової транзакції
-                    const transactionsCollectionRef = collection(db, `/artifacts/${appId}/users/${userId}/transactions`);
-                    // Використовуємо doc() без параметрів для генерації нового ID, потім set()
-                    transactionFirestore.set(doc(transactionsCollectionRef), newTransactionData);
-                }
+            const transactionsCollectionRef = collection(db, `/artifacts/${appId}/users/${userId}/transactions`);
+            await addDoc(transactionsCollectionRef, {
+                description: newTransaction.description.trim(),
+                amount: transactionAmount,
+                type: newTransaction.type,
+                category: newTransaction.category,
+                date: newTransaction.date,
+                currency: newTransaction.currency,
+                accountId: newTransaction.account,
+                createdAt: new Date().toISOString(),
+                userId: userId
             });
 
-            console.log("Транзакція успішно збережена!");
-            closeTransactionModal();
-        } catch (e) {
-            console.error("Помилка збереження транзакції або оновлення балансу рахунку: ", e);
-            setError(new Error(`Помилка: ${e.message || e}`)); // Краще повідомлення про помилку
-        } finally {
-            setIsSaving(false);
+            // Update account balance
+            const accountDocRef = doc(db, `/artifacts/${appId}/users/${userId}/accounts`, newTransaction.account);
+            const currentAccount = accounts.find(acc => acc.id === newTransaction.account);
+            if (currentAccount) {
+                await updateDoc(accountDocRef, {
+                    balance: currentAccount.balance + transactionAmount
+                });
+            }
+
+            setNewTransaction({
+                description: "", amount: "", type: "expense", category: "Other",
+                date: new Date().toISOString().substring(0, 10), currency: "UAH", account: accounts[0]?.id || ""
+            });
+            setShowAddModal(false);
+            setError(null);
+        } catch (err) {
+            console.error("Помилка додавання транзакції:", err);
+            setError(new Error(`Помилка додавання транзакції: ${err.message}`));
         }
     };
 
-
-    // Функція для видалення транзакції
-    const handleDeleteTransaction = async () => {
-        if (!db || !userId || !transactionToDelete) {
-            console.error("Firebase або ID користувача недоступні, або транзакція для видалення не обрана.");
+    const handleEditTransaction = async () => {
+        if (!db || !userId || !editTransaction.description.trim() || isNaN(parseFloat(editTransaction.amount)) || !editTransaction.date.trim() || !editTransaction.accountId) {
+            setError(new Error("Будь ласка, заповніть усі обов'язкові поля для редагування."));
             return;
         }
 
-        const transactionRef = doc(db, `/artifacts/${appId}/users/${userId}/transactions`, transactionToDelete.id);
-        const accountDocRef = doc(db, `/artifacts/${appId}/users/${userId}/accounts`, transactionToDelete.accountId);
-
-        setIsSaving(true); // Використовуємо той самий індикатор
         try {
-            await runTransaction(db, async (transactionFirestore) => {
-                const accountDoc = await transactionFirestore.get(accountDocRef);
+            const oldTransaction = transactions.find(t => t.id === editTransaction.id);
+            if (!oldTransaction) {
+                setError(new Error("Помилка: Стара транзакція не знайдена."));
+                return;
+            }
 
-                if (!accountDoc.exists()) {
-                    throw new Error("Рахунок не існує!"); // Виправлено: кидаємо об'єкт Error
-                }
+            const oldAmount = oldTransaction.amount;
+            const newAmount = parseFloat(editTransaction.amount);
+            const newTransactionAmount = editTransaction.type === 'expense' ? -Math.abs(newAmount) : Math.abs(newAmount);
 
-                let newAccountBalance = accountDoc.data().balance;
-                // Відкатуємо суму транзакції з балансу рахунку
-                if (transactionToDelete.type === 'expense') {
-                    newAccountBalance += transactionToDelete.amount; // Додаємо назад витрату
-                } else { // income
-                    newAccountBalance -= transactionToDelete.amount; // Віднімаємо дохід
-                }
-
-                transactionFirestore.update(accountDocRef, { balance: newAccountBalance });
-                transactionFirestore.delete(transactionRef); // Видаляємо транзакцію
+            const transactionDocRef = doc(db, `/artifacts/${appId}/users/${userId}/transactions`, editTransaction.id);
+            await updateDoc(transactionDocRef, {
+                description: editTransaction.description.trim(),
+                amount: newTransactionAmount,
+                type: editTransaction.type,
+                category: editTransaction.category,
+                date: editTransaction.date,
+                currency: editTransaction.currency,
+                accountId: editTransaction.accountId,
             });
 
-            console.log("Транзакція успішно видалена!");
-            closeConfirmModal();
-        } catch (e) {
-            console.error("Помилка видалення транзакції або оновлення балансу рахунку: ", e);
-            setError(new Error(`Помилка: ${e.message || e}`));
-        } finally {
-            setIsSaving(false);
+            // Adjust account balance
+            const accountDocRef = doc(db, `/artifacts/${appId}/users/${userId}/accounts`, editTransaction.accountId);
+            const currentAccount = accounts.find(acc => acc.id === editTransaction.accountId);
+            if (currentAccount) {
+                // Remove old amount, add new amount
+                const balanceChange = newTransactionAmount - oldAmount;
+                await updateDoc(accountDocRef, {
+                    balance: currentAccount.balance + balanceChange
+                });
+            }
+
+            setSelectedTransaction(null);
+            setEditTransaction(null);
+            setShowEditModal(false);
+            setError(null);
+        } catch (err) {
+            console.error("Помилка оновлення транзакції:", err);
+            setError(new Error(`Помилка оновлення транзакції: ${err.message}`));
         }
     };
 
-    // Фільтрація та сортування транзакцій
-    const filteredTransactions = transactions
-        .filter(t =>
-            t.description.toLowerCase().includes(searchTerm.toLowerCase()) &&
-            (filterCategory ? t.category === filterCategory : true) &&
-            (filterAccount ? t.accountId === filterAccount : true) && // Фільтруємо за accountId
-            (filterType ? t.type === filterType : true)
-        )
-        .sort((a, b) => new Date(b.date) - new Date(a.date)); // Сортування за датою DESC
+    const handleDeleteTransaction = (transaction) => {
+        setSelectedTransaction(transaction);
+        setShowDeleteConfirm(true);
+    };
 
-    // Обчислення загальних витрат за категоріями для відображення
-    const totalSpentByCategory = filteredTransactions
-        .filter(t => t.type === 'expense')
-        .reduce((acc, transaction) => {
-            const category = transaction.category || 'Без категорії'; // Переконайтеся, що є категорія
-            acc[category] = (acc[category] || 0) + Math.abs(transaction.amount);
-            return acc;
-        }, {});
+    const confirmDelete = async () => {
+        if (selectedTransaction && db && userId) {
+            try {
+                // Adjust account balance before deleting transaction
+                const accountDocRef = doc(db, `/artifacts/${appId}/users/${userId}/accounts`, selectedTransaction.accountId);
+                const currentAccount = accounts.find(acc => acc.id === selectedTransaction.accountId);
 
-    if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans']">Завантаження даних...</div>;
+                if (currentAccount) {
+                    await updateDoc(accountDocRef, {
+                        balance: currentAccount.balance - selectedTransaction.amount // Subtracting the amount effectively adds it back if it was an expense (negative) or removes it if income (positive)
+                    });
+                }
+
+                await deleteDoc(doc(db, `/artifacts/${appId}/users/${userId}/transactions`, selectedTransaction.id));
+                setError(null);
+            } catch (err) {
+                console.error("Помилка видалення транзакції:", err);
+                setError(new Error(`Помилка видалення транзакції: ${err.message}`));
+            } finally {
+                setShowDeleteConfirm(false);
+                setSelectedTransaction(null);
+            }
+        }
+    };
+
+    const cancelDelete = () => {
+        setShowDeleteConfirm(false);
+        setSelectedTransaction(null);
+    };
+
+    const handleLogout = async () => {
+        if (!auth) {
+            console.error("Firebase Auth не доступний.");
+            return;
+        }
+        try {
+            await signOut(auth);
+            console.log("Користувач успішно вийшов з облікового запису.");
+            navigate('/login');
+        } catch (error) {
+            console.error("Помилка виходу з облікового запису:", error);
+            setError(new Error(`Помилка виходу: ${error.message}`));
+        }
+    };
+
+    // Determine the display name
+    const displayName = (userData && userData.firstName && userData.lastName)
+        ? `${userData.firstName} ${userData.lastName}`
+        : userData?.email || 'Користувач';
+
+    if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans']">Завантаження транзакцій...</div>;
     if (error) return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans'] text-red-500">Помилка: {error.message}</div>;
 
     return (
-        <div className="flex min-h-screen bg-gray-100">
-            {/* Бічна панель (скопійована з Dashboard для послідовності) */}
+        <div className="flex min-h-screen bg-[#F7FAFC] font-['DM Sans']">
+            {/* Sidebar */}
             <aside className="w-64 bg-white p-6 shadow-xl flex flex-col justify-between rounded-r-xl">
                 <div>
                     <div className="flex items-center mb-10">
@@ -286,253 +309,500 @@ function Transactions({ db, auth, userId }) {
                         <span className="text-xl font-bold text-gray-900">Finance Manager</span>
                     </div>
                     <nav className="space-y-4">
-                        <Link to="/" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
-                            <HomeIcon className="h-5 w-5 mr-3" /> Home
+                        <Link to="/dashboard" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
+                            <HomeIcon className="h-5 w-5 mr-3" /> Інформаційна панель
                         </Link>
                         <Link to="/budgets" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
-                            <BanknotesIcon className="h-5 w-5 mr-3" /> Budgets
+                            <BanknotesIcon className="h-5 w-5 mr-3" /> Бюджети
                         </Link>
                         <Link to="/goals" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
-                            <ListBulletIcon className="h-5 w-5 mr-3" /> Goals
+                            <ListBulletIcon className="h-5 w-5 mr-3" /> Наші цілі
                         </Link>
                         <Link to="/accounts" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
-                            <CreditCardIcon className="h-5 w-5 mr-3" /> Accounts
+                            <CreditCardIcon className="h-5 w-5 mr-3" />  Рахунки  
                         </Link>
                         <Link to="/transactions" className="flex items-center text-blue-600 bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
-                            <ClipboardDocumentListIcon className="h-5 w-5 mr-3" /> Transactions
-                        </Link>
-                        <Link to="/categories" className="flex items-center text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors duration-200">
-                            <Squares2X2Icon className="h-5 w-5 mr-3" /> Categories
+                            <ClipboardDocumentListIcon className="h-5 w-5 mr-3" /> Транзакції
                         </Link>
                     </nav>
                 </div>
             </aside>
 
-            {/* Основний контент сторінки Транзакцій */}
-            <div className="flex-1 p-4 sm:p-6 lg:p-8">
-                {/* Хедер (скопійований з Dashboard для послідовності) */}
-                <header className="bg-white p-4 rounded-xl shadow-md flex justify-end items-center mb-6">
+            {/* Main content area */}
+            <div className="flex-1 flex flex-col p-6 max-w-[1184px] mx-auto">
+                <header className="bg-white p-4 rounded-xl shadow-md flex justify-between items-center mb-6">
+                    <h1 className="text-3xl font-bold text-gray-800">Керування транзакціями</h1>
                     <div className="flex items-center space-x-6">
-                        {/* Вибір бюджету (залишився статичним, можна додати отримання з Firestore) */}
-                        <div className="relative">
-                            <select
-                                className="appearance-none bg-gray-100 text-gray-800 font-semibold py-2 px-4 rounded-lg pr-8 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-300"
-                            >
-                                <option value="Budget 1">Budget 1</option>
-                                <option value="Budget 2">Budget 2</option>
-                            </select>
-                            <ChevronDownIcon className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
-                        </div>
-                        <BellIcon className="h-6 w-6 text-gray-500 cursor-pointer hover:text-blue-600" />
                         <div className="flex items-center space-x-2">
                             <UserCircleIcon className="h-8 w-8 text-blue-500" />
                             <div className="text-sm">
-                                <p className="font-semibold text-gray-800">{auth.currentUser?.email || 'Користувач'}</p>
-                                <p className="text-gray-500">{userId}</p>
+                                <p className="font-semibold text-gray-800">{displayName}</p>
                             </div>
+                            <button
+                                onClick={handleLogout}
+                                className="ml-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-lg transition-colors duration-200"
+                            >
+                                Вийти
+                            </button>
                         </div>
                     </div>
                 </header>
 
-                <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 mb-6">Транзакції</h1>
+                <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                    <h2 className="text-xl font-semibold text-gray-700 mb-4">Список транзакцій</h2>
 
-                <div className="flex justify-end mb-6">
-                    <button
-                        onClick={() => openTransactionModal()}
-                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center shadow-md transition"
-                    >
-                        <PlusCircleIcon className="h-5 w-5 mr-2" /> Додати транзакцію
-                    </button>
-                </div>
+                    {/* Filters and Search */}
+                    <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="relative">
+                            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Пошук за описом або категорією..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                            />
+                        </div>
 
-                {/* Filters */}
-                <div className="bg-white p-6 rounded-lg shadow-md mb-6 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    <div className="relative">
-                        <input
-                            type="text"
-                            placeholder="Пошук за описом..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        />
-                        <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    </div>
-                    <select
-                        value={filterCategory}
-                        onChange={(e) => setFilterCategory(e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option value="">Всі категорії</option>
-                        {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                    </select>
-                    <select
-                        value={filterAccount}
-                        onChange={(e) => setFilterAccount(e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option value="">Всі рахунки</option>
-                        {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
-                    </select>
-                    <select
-                        value={filterType}
-                        onChange={(e) => setFilterType(e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option value="">Всі типи</option>
-                        <option value="income">Дохід</option>
-                        <option value="expense">Витрата</option>
-                    </select>
-                </div>
+                        <div>
+                            <label htmlFor="filterType" className="sr-only">Тип транзакції</label>
+                            <select
+                                id="filterType"
+                                value={filterType}
+                                onChange={(e) => setFilterType(e.target.value)}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white pr-8"
+                            >
+                                <option value="all">Всі типи</option>
+                                <option value="income">Дохід</option>
+                                <option value="expense">Витрата</option>
+                            </select>
+                            <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
+                        </div>
 
-                {/* NEW: Category Expenses Summary Card */}
-                <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-                    <h2 className="text-xl font-semibold text-gray-700 mb-4">Витрати за категоріями (поточні фільтри)</h2>
-                    {Object.keys(totalSpentByCategory).length === 0 ? (
-                        <p className="text-gray-500">Немає витрат за категоріями з поточними фільтрами.</p>
-                    ) : (
-                        <div className="space-y-2">
-                            {Object.entries(totalSpentByCategory)
-                                .sort(([, amountA], [, amountB]) => amountB - amountA) // Сортування за сумою спадання
-                                .map(([category, amount]) => (
-                                    <div key={category} className="flex justify-between items-center text-gray-800 text-sm border-b border-gray-100 pb-2 last:border-b-0">
-                                        <span className="font-medium">{category}</span>
-                                        <span className="font-semibold text-red-600">-${amount.toFixed(2)}</span>
-                                    </div>
+                        <div>
+                            <label htmlFor="filterCategory" className="sr-only">Категорія</label>
+                            <select
+                                id="filterCategory"
+                                value={filterCategory}
+                                onChange={(e) => setFilterCategory(e.target.value)}
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white pr-8"
+                            >
+                                <option value="all">Всі категорії</option>
+                                {availableCategories.map(cat => (
+                                    <option key={cat} value={cat}>{cat}</option>
                                 ))}
+                            </select>
+                            <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
+                        </div>
+
+                        <div className="flex space-x-2">
+                            <input
+                                type="date"
+                                value={filterStartDate}
+                                onChange={(e) => setFilterStartDate(e.target.value)}
+                                className="w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                title="Дата початку"
+                            />
+                            <input
+                                type="date"
+                                value={filterEndDate}
+                                onChange={(e) => setFilterEndDate(e.target.value)}
+                                className="w-1/2 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                title="Дата закінчення"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex justify-between items-center mb-6">
+                        <div className="flex space-x-4">
+                            <div>
+                                <label htmlFor="sortBy" className="sr-only">Сортувати за</label>
+                                <select
+                                    id="sortBy"
+                                    value={sortBy}
+                                    onChange={(e) => setSortBy(e.target.value)}
+                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white pr-8"
+                                >
+                                    <option value="date">Датою</option>
+                                    <option value="amount">Сумою</option>
+                                </select>
+                                <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
+                            </div>
+                            <div>
+                                <label htmlFor="sortOrder" className="sr-only">Порядок сортування</label>
+                                <select
+                                    id="sortOrder"
+                                    value={sortOrder}
+                                    onChange={(e) => setSortOrder(e.target.value)}
+                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white pr-8"
+                                >
+                                    <option value="desc">Спаданням</option>
+                                    <option value="asc">Зростанням</option>
+                                </select>
+                                <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="bg-[#2C5282] text-white px-4 py-2 rounded-lg shadow hover:bg-[#4299E1] transition-colors duration-200 flex items-center"
+                        >
+                            <PlusIcon className="h-5 w-5 mr-2" /> Додати транзакцію
+                        </button>
+                    </div>
+
+                    {filteredTransactions.length === 0 ? (
+                        <p className="text-gray-500 text-center py-8">Немає транзакцій, що відповідають критеріям.</p>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-[#F0F4F8]">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Опис</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Сума</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Тип</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Категорія</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Дата</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Рахунок</th>
+                                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-700 uppercase tracking-wider">Дії</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {filteredTransactions.map(transaction => {
+                                        const currencySymbol = currencies.find(c => c.code === transaction.currency)?.symbol || '';
+                                        const displayAmount = `${transaction.type === 'expense' ? '-' : '+'}${currencySymbol}${Math.abs(transaction.amount).toFixed(2)}`;
+                                        const amountColorClass = transaction.type === 'expense' ? 'text-red-600' : 'text-green-600';
+                                        const accountName = accounts.find(acc => acc.id === transaction.accountId)?.name || 'Невідомий рахунок';
+
+                                        return (
+                                            <tr key={transaction.id} className="hover:bg-[#EBF8FF] transition-colors duration-150">
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{transaction.description}</td>
+                                                <td className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${amountColorClass}`}>{displayAmount}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                                        ${transaction.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                        {transaction.type === 'income' ? 'Дохід' : 'Витрата'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{transaction.category}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{transaction.date}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{accountName}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedTransaction(transaction);
+                                                            setEditTransaction({ ...transaction, amount: Math.abs(transaction.amount) }); // Ensure amount is positive for editing
+                                                            setShowEditModal(true);
+                                                        }}
+                                                        className="text-indigo-600 hover:text-indigo-900 transition-colors duration-200 p-2 rounded-md hover:bg-indigo-50"
+                                                        title="Редагувати"
+                                                    >
+                                                        <PencilIcon className="h-5 w-5" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteTransaction(transaction)}
+                                                        className="text-red-600 hover:text-red-900 transition-colors duration-200 p-2 rounded-md hover:bg-red-50 ml-2"
+                                                        title="Видалити"
+                                                    >
+                                                        <TrashIcon className="h-5 w-5" />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
                         </div>
                     )}
                 </div>
 
-                {/* Transaction List */}
-                <div className="bg-white p-6 rounded-lg shadow-md">
-                    <h2 className="text-2xl font-semibold text-gray-700 mb-4">Список транзакцій</h2>
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Дата</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Опис</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Сума</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Категорія</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Рахунок</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Дії</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {filteredTransactions.length === 0 ? (
-                                    <tr>
-                                        <td colSpan="6" className="px-6 py-4 text-center text-gray-500">Транзакцій не знайдено.</td>
-                                    </tr>
-                                ) : (
-                                    filteredTransactions.map((t) => (
-                                        <tr key={t.id}>
-                                            <td className="px-6 py-4 text-sm text-gray-900">{t.date}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-900">{t.description}</td>
-                                            <td className={`px-6 py-4 text-sm font-semibold ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
-                                                {t.type === 'income' ? '+' : ''}{Math.abs(t.amount).toFixed(2)} ₴
-                                            </td>
-                                            <td className="px-6 py-4 text-sm text-gray-900">{t.category}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-900">
-                                                {/* Відображаємо назву рахунку за його ID */}
-                                                {accounts.find(acc => acc.id === t.accountId)?.name || 'Невідомий рахунок'}
-                                            </td>
-                                            <td className="px-6 py-4 text-right space-x-2">
-                                                <button onClick={() => openTransactionModal(t)} className="text-blue-500 hover:text-blue-700">
-                                                    <PencilIcon className="h-5 w-5 inline" />
-                                                </button>
-                                                <button onClick={() => openConfirmModal(t)} className="text-red-500 hover:text-red-700">
-                                                    <TrashIcon className="h-5 w-5 inline" />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                {/* Modal для додавання/редагування транзакції */}
-                {isModalOpen && (
-                    <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
-                        <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-lg relative">
+                {/* Add Transaction Modal */}
+                {showAddModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md relative max-h-[90vh] overflow-y-auto">
                             <button
-                                onClick={closeTransactionModal}
-                                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+                                onClick={() => setShowAddModal(false)}
+                                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition-colors"
                             >
-                                <XMarkIcon className="h-6 w-6" />
+                                <XMarkIcon className="h-7 w-7" />
                             </button>
-                            <h2 className="text-xl font-bold mb-4">{currentTransaction ? 'Редагувати' : 'Нова'} транзакція</h2>
-                            <form onSubmit={handleSaveTransaction} className="space-y-4">
-                                <label className="block">
-                                    <span className="text-gray-700">Дата:</span>
-                                    <input type="date" name="date" defaultValue={currentTransaction?.date || new Date().toISOString().substring(0, 10)} required className="mt-1 block w-full border p-2 rounded" />
-                                </label>
-                                <label className="block">
-                                    <span className="text-gray-700">Опис:</span>
-                                    <input type="text" name="description" placeholder="Опис" defaultValue={currentTransaction?.description} required className="mt-1 block w-full border p-2 rounded" />
-                                </label>
-                                <label className="block">
-                                    <span className="text-gray-700">Сума:</span>
-                                    <input type="number" name="amount" placeholder="Сума" step="0.01" defaultValue={currentTransaction?.amount} required className="mt-1 block w-full border p-2 rounded" />
-                                </label>
-                                <label className="block">
-                                    <span className="text-gray-700">Категорія:</span>
-                                    <select name="category" defaultValue={currentTransaction?.category} required className="mt-1 block w-full border p-2 rounded">
-                                        <option value="">Оберіть категорію</option>
-                                        {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-                                    </select>
-                                </label>
-                                <label className="block">
-                                    <span className="text-gray-700">Рахунок:</span>
-                                    <select name="account" defaultValue={currentTransaction?.accountId} required className="mt-1 block w-full border p-2 rounded">
-                                        <option value="">Оберіть рахунок</option>
-                                        {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
-                                    </select>
-                                </label>
-                                <label className="block">
-                                    <span className="text-gray-700">Тип:</span>
-                                    <select name="type" defaultValue={currentTransaction?.type || 'expense'} className="mt-1 block w-full border p-2 rounded">
+                            <h2 className="text-2xl font-bold text-gray-800 mb-5 text-center">Додати нову транзакцію</h2>
+
+                            <div className="mb-4 space-y-3">
+                                <div>
+                                    <label htmlFor="newTransactionDescription" className="block text-sm font-medium text-gray-700 mb-1">Опис</label>
+                                    <input
+                                        id="newTransactionDescription"
+                                        type="text"
+                                        placeholder="Напр. 'Кава', 'Зарплата'"
+                                        value={newTransaction.description}
+                                        onChange={e => setNewTransaction({ ...newTransaction, description: e.target.value })}
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="newTransactionAmount" className="block text-sm font-medium text-gray-700 mb-1">Сума</label>
+                                    <input
+                                        id="newTransactionAmount"
+                                        type="number"
+                                        placeholder="Напр. 25.00"
+                                        value={newTransaction.amount}
+                                        onChange={e => setNewTransaction({ ...newTransaction, amount: e.target.value })}
+                                        step="0.01"
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="newTransactionType" className="block text-sm font-medium text-gray-700 mb-1">Тип</label>
+                                    <select
+                                        id="newTransactionType"
+                                        value={newTransaction.type}
+                                        onChange={e => setNewTransaction({ ...newTransaction, type: e.target.value })}
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white pr-8"
+                                    >
                                         <option value="expense">Витрата</option>
                                         <option value="income">Дохід</option>
                                     </select>
-                                </label>
-                                <div className="flex justify-end space-x-2">
-                                    <button
-                                        type="submit"
-                                        className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
-                                        disabled={isSaving}
-                                    >
-                                        {isSaving ? 'Зберігаємо...' : 'Зберегти'}
-                                    </button>
-                                    <button type="button" onClick={closeTransactionModal} className="bg-gray-400 text-white px-4 py-2 rounded">Скасувати</button>
+                                    <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
                                 </div>
-                            </form>
+                                <div>
+                                    <label htmlFor="newTransactionCategory" className="block text-sm font-medium text-gray-700 mb-1">Категорія</label>
+                                    <input
+                                        id="newTransactionCategory"
+                                        type="text"
+                                        placeholder="Напр. 'Їжа', 'Транспорт'"
+                                        value={newTransaction.category}
+                                        onChange={e => setNewTransaction({ ...newTransaction, category: e.target.value })}
+                                        list="categoriesList"
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                    />
+                                    <datalist id="categoriesList">
+                                        {availableCategories.map(cat => (
+                                            <option key={cat} value={cat} />
+                                        ))}
+                                    </datalist>
+                                </div>
+                                <div>
+                                    <label htmlFor="newTransactionDate" className="block text-sm font-medium text-gray-700 mb-1">Дата</label>
+                                    <input
+                                        id="newTransactionDate"
+                                        type="date"
+                                        value={newTransaction.date}
+                                        onChange={e => setNewTransaction({ ...newTransaction, date: e.target.value })}
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="newTransactionCurrency" className="block text-sm font-medium text-gray-700 mb-1">Валюта</label>
+                                    <select
+                                        id="newTransactionCurrency"
+                                        value={newTransaction.currency}
+                                        onChange={e => setNewTransaction({ ...newTransaction, currency: e.target.value })}
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white pr-8"
+                                        required
+                                    >
+                                        {currencies.map(c => (
+                                            <option key={c.code} value={c.code}>{c.name} ({c.symbol})</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
+                                </div>
+                                <div>
+                                    <label htmlFor="newTransactionAccount" className="block text-sm font-medium text-gray-700 mb-1">Рахунок</label>
+                                    <select
+                                        id="newTransactionAccount"
+                                        value={newTransaction.account}
+                                        onChange={e => setNewTransaction({ ...newTransaction, account: e.target.value })}
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white pr-8"
+                                        required
+                                    >
+                                        {accounts.length === 0 ? (
+                                            <option value="">Додайте рахунок</option>
+                                        ) : (
+                                            accounts.map(acc => (
+                                                <option key={acc.id} value={acc.id}>{acc.name}</option>
+                                            ))
+                                        )}
+                                    </select>
+                                    <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end space-x-3 mt-4">
+                                <button
+                                    onClick={() => setShowAddModal(false)}
+                                    className="px-5 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors duration-200 text-sm"
+                                >
+                                    Скасувати
+                                </button>
+                                <button
+                                    onClick={handleAddTransaction}
+                                    className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm"
+                                >
+                                    Додати
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
 
-                {/* Modal для підтвердження видалення */}
-                {isConfirmModalOpen && (
-                    <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
-                        <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-sm relative">
+                {/* Edit Transaction Modal */}
+                {showEditModal && editTransaction && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md relative max-h-[90vh] overflow-y-auto">
                             <button
-                                onClick={closeConfirmModal}
-                                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+                                onClick={() => { setShowEditModal(false); setEditTransaction(null); setSelectedTransaction(null); }}
+                                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 transition-colors"
                             >
-                                <XMarkIcon className="h-6 w-6" />
+                                <XMarkIcon className="h-7 w-7" />
                             </button>
-                            <h2 className="text-xl font-bold mb-4">Підтвердження видалення</h2>
-                            <p className="mb-4">Ви впевнені, що хочете видалити транзакцію "{transactionToDelete?.description}"?</p>
-                            <div className="flex justify-end space-x-2">
+                            <h2 className="text-2xl font-bold text-gray-800 mb-5 text-center">Редагувати транзакцію</h2>
+
+                            <div className="mb-4 space-y-3">
+                                <div>
+                                    <label htmlFor="editTransactionDescription" className="block text-sm font-medium text-gray-700 mb-1">Опис</label>
+                                    <input
+                                        id="editTransactionDescription"
+                                        type="text"
+                                        value={editTransaction.description}
+                                        onChange={e => setEditTransaction({ ...editTransaction, description: e.target.value })}
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="editTransactionAmount" className="block text-sm font-medium text-gray-700 mb-1">Сума</label>
+                                    <input
+                                        id="editTransactionAmount"
+                                        type="number"
+                                        value={editTransaction.amount}
+                                        onChange={e => setEditTransaction({ ...editTransaction, amount: e.target.value })}
+                                        step="0.01"
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="editTransactionType" className="block text-sm font-medium text-gray-700 mb-1">Тип</label>
+                                    <select
+                                        id="editTransactionType"
+                                        value={editTransaction.type}
+                                        onChange={e => setEditTransaction({ ...editTransaction, type: e.target.value })}
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white pr-8"
+                                    >
+                                        <option value="expense">Витрата</option>
+                                        <option value="income">Дохід</option>
+                                    </select>
+                                    <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
+                                </div>
+                                <div>
+                                    <label htmlFor="editTransactionCategory" className="block text-sm font-medium text-gray-700 mb-1">Категорія</label>
+                                    <input
+                                        id="editTransactionCategory"
+                                        type="text"
+                                        value={editTransaction.category}
+                                        onChange={e => setEditTransaction({ ...editTransaction, category: e.target.value })}
+                                        list="categoriesList"
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                    />
+                                    <datalist id="categoriesList">
+                                        {availableCategories.map(cat => (
+                                            <option key={cat} value={cat} />
+                                        ))}
+                                    </datalist>
+                                </div>
+                                <div>
+                                    <label htmlFor="editTransactionDate" className="block text-sm font-medium text-gray-700 mb-1">Дата</label>
+                                    <input
+                                        id="editTransactionDate"
+                                        type="date"
+                                        value={editTransaction.date}
+                                        onChange={e => setEditTransaction({ ...editTransaction, date: e.target.value })}
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="editTransactionCurrency" className="block text-sm font-medium text-gray-700 mb-1">Валюта</label>
+                                    <select
+                                        id="editTransactionCurrency"
+                                        value={editTransaction.currency}
+                                        onChange={e => setEditTransaction({ ...editTransaction, currency: e.target.value })}
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white pr-8"
+                                        required
+                                    >
+                                        {currencies.map(c => (
+                                            <option key={c.code} value={c.code}>{c.name} ({c.symbol})</option>
+                                        ))}
+                                    </select>
+                                    <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
+                                </div>
+                                <div>
+                                    <label htmlFor="editTransactionAccount" className="block text-sm font-medium text-gray-700 mb-1">Рахунок</label>
+                                    <select
+                                        id="editTransactionAccount"
+                                        value={editTransaction.accountId}
+                                        onChange={e => setEditTransaction({ ...editTransaction, accountId: e.target.value })}
+                                        className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white pr-8"
+                                        required
+                                    >
+                                        {accounts.length === 0 ? (
+                                            <option value="">Додайте рахунок</option>
+                                        ) : (
+                                            accounts.map(acc => (
+                                                <option key={acc.id} value={acc.id}>{acc.name}</option>
+                                            ))
+                                        )}
+                                    </select>
+                                    <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
+                                </div>
+                            </div>
+
+                            <div className="flex justify-end space-x-3 mt-4">
                                 <button
-                                    onClick={handleDeleteTransaction}
-                                    className="bg-red-600 text-white px-4 py-2 rounded disabled:opacity-50"
-                                    disabled={isSaving}
+                                    onClick={() => { setShowEditModal(false); setEditTransaction(null); setSelectedTransaction(null); }}
+                                    className="px-5 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors duration-200 text-sm"
                                 >
-                                    {isSaving ? 'Видаляємо...' : 'Видалити'}
+                                    Скасувати
                                 </button>
-                                <button type="button" onClick={closeConfirmModal} className="bg-gray-400 text-white px-4 py-2 rounded">Скасувати</button>
+                                <button
+                                    onClick={handleEditTransaction}
+                                    className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm"
+                                >
+                                    Зберегти
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Delete Confirmation Modal */}
+                {showDeleteConfirm && (
+                    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
+                            <div className="flex items-center text-red-500 mb-4">
+                                <ExclamationTriangleIcon className="h-6 w-6 mr-2" />
+                                <h3 className="text-lg font-bold text-gray-800">Підтвердити видалення</h3>
+                            </div>
+                            <p className="text-gray-700 mb-6">
+                                Ви впевнені, що хочете видалити транзакцію "{selectedTransaction.description}"?
+                                Цю дію не можна скасувати.
+                            </p>
+                            <div className="flex justify-end space-x-4">
+                                <button
+                                    onClick={cancelDelete}
+                                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors duration-200"
+                                >
+                                    Скасувати
+                                </button>
+                                <button
+                                    onClick={confirmDelete}
+                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200"
+                                >
+                                    Видалити
+                                </button>
                             </div>
                         </div>
                     </div>
