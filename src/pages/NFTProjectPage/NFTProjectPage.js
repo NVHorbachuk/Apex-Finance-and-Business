@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react'; // Виправлений синтаксис імпорту: використовуємо 'from'
+import React, { useState, useEffect } from 'react'; 
 
 const NFTProjectPage = () => {
-    // State to manage FAQ accordion
+
     const [openFaq, setOpenFaq] = useState(null);
 
     
@@ -20,8 +20,8 @@ const NFTProjectPage = () => {
         </div>
     );
 
-    // Оновлений компонент TeamMember
-    const TeamMember = ({ name, role, avatar, linkedinUrl }) => ( // Додано linkedinUrl як пропс
+    // TeamMember
+    const TeamMember = ({ name, role, avatar, linkedinUrl }) => ( 
         <div className="flex flex-col items-center p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow">
             <img src={avatar} alt={name} className="w-24 h-24 rounded-full mb-3 object-cover border-4 border-blue-100" />
             <h4 className="text-lg font-semibold text-gray-800">{name}</h4>
@@ -277,7 +277,6 @@ const NFTProjectPage = () => {
                         Ми працюємо над створенням дивовижного фінансового світу для всіх
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                        {/* Приклади використання компонента TeamMember з і без linkedinUrl */}
                         <TeamMember name="Назарій" role="CEO & Засновник" avatar="https://placehold.co/100x100/F0F9FF/0C4A6E?text=D" linkedinUrl="https://ua.linkedin.com/in/nazarii-horbachuk-6a5703323" />
                         <TeamMember name="Андрій" role="CTO & Співзасновник" avatar="https://placehold.co/100x100/FEF2F2/7F1D1D?text=J" linkedinUrl="https://ua.linkedin.com/in/jakub-profile" />
                         <TeamMember name="Святослав" role="Дизайнер" avatar="https://placehold.co/100x100/F0FDF4/166534?text=P" linkedinUrl="https://ua.linkedin.com/in/pavla-profile" />
@@ -316,7 +315,6 @@ const NFTProjectPage = () => {
                             question="Чому я повинен купити ApexGuardian NFT?"
                             answer="Придбання ApexGuardian NFT надає вам доступ до преміум-функцій програми ApexGuardian, ексклюзивних переваг для власників, раннього доступу до нових функцій, а також можливість стати частиною спільноти, орієнтованої на крипто-фінанси."
                         />
-                        {/* Коментар був переміщений на окремий рядок, щоб уникнути синтаксичної помилки JSX */}
                         <FaqItem
                             index={3}
                             question="Чим це відрізняється від звичайної преміум-ліцензії на все життя?"
@@ -363,7 +361,7 @@ const NFTProjectPage = () => {
                     <p className="mb-6">
                         ApexGuardian NFT створено з ❤️ за SYSDOCT.
                         <br />
-                        Колекція ілюстрована Анастасією Орловою (AnDiDi).
+                        Колекція ілюстрована Тетяною Довгун (AnDiDi).
                     </p>
                     <div className="flex justify-center space-x-6 mb-6">
                         {/* Використовуємо placeholder URL для соціальних мереж */}
