@@ -2,22 +2,38 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
     AcademicCapIcon, ChartPieIcon, CheckCircleIcon,
-    ShieldCheckIcon, RocketLaunchIcon, UserGroupIcon
+    ShieldCheckIcon, RocketLaunchIcon, UserGroupIcon,
+    Bars3Icon, XMarkIcon
 } from '@heroicons/react/24/outline';
+// Removed: import { Dialog, DialogPanel } from '@headlessui/react';
 
+
+// Шляхи до зображень, використовуючи надані імена файлів
 const logoUrl = "/image.png";
+const founder1ImageUrl = "/1755782105149.jpg";
+const founder2ImageUrl = "/image_b2fe3d.png"; // Замінено на файл користувача
+const founder3ImageUrl = "/image_a4f579.png"; // Замінено на файл користувача
+
 
 function LandingPage() {
+    // Стан для керування відкриттям/закриттям мобільного меню
+    const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+
+    // useEffect для логування після монтування компонента (для налагодження)
+    React.useEffect(() => {
+        console.log("LandingPage component mounted.");
+    }, []);
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-100 via-blue-100 to-green-100 font-['Inter'] text-gray-900">
-             {/* Top Notification Banner */}
+        <div className="min-h-screen bg-gradient-to-br from-purple-100 via-blue-100 to-green-100 font-['Inter'] text-gray-900 flex flex-col">
+             {/* Верхній банер сповіщень */}
             <div className="bg-emerald-500 text-white p-3 text-center text-sm flex items-center justify-center space-x-2">
                 <span>
                     Розблокуйте Apex Finance Premium з NFT 🔗
                 </span>
-                <a href="#" className="underline hover:text-gray-200 transition-colors" target="_blank" rel="noopener noreferrer">
+                <Link to="/nft-project" className="underline hover:text-gray-200 transition-colors"> {/* Посилання на сторінку проекту NFT */}
                     Натисніть, щоб дізнатися про наш останній проект! 🚀
-                </a>
+                </Link>
             </div>
             {/* Навігаційна панель */}
 
@@ -27,15 +43,113 @@ function LandingPage() {
                         <img src={logoUrl} alt="APEX Finance Logo" className="h-12 w-12 mr-3 rounded-full shadow-md border border-gray-100" />
                         <span className="text-3xl font-extrabold text-indigo-700 tracking-tight">APEX FINANCE</span>
                     </div>
-                    <nav className="space-x-8 flex items-center">
+                    {/* Мобільне меню - кнопка відкриття */}
+                    <div className="flex lg:hidden">
+                        <button
+                            type="button"
+                            className="-m-2.5 inline-flex items-center justify-center rounded-md p-2.5 text-gray-700"
+                            onClick={() => setMobileMenuOpen(true)}
+                        >
+                            <span className="sr-only">Відкрити головне меню</span>
+                            <Bars3Icon className="h-6 w-6" aria-hidden="true" />
+                        </button>
+                    </div>
+
+                    <nav className="hidden lg:flex space-x-8 items-center">
+                        <Link to="/nft-project" className="text-lg font-medium text-gray-700 hover:text-indigo-600 px-4 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-gray-50">Проект NFT</Link>
+                        <a href="#features" className="text-lg font-medium text-gray-700 hover:text-indigo-600 px-4 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-gray-50">Продукт</a>
+                        <a href="#features" className="text-lg font-medium text-gray-700 hover:text-indigo-600 px-4 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-gray-50">Функції</a>
+                        <a href="#" className="text-lg font-medium text-gray-700 hover:text-indigo-600 px-4 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-gray-50">Маркетплейс</a>
+                        <a href="#" className="text-lg font-medium text-gray-700 hover:text-indigo-600 px-4 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-gray-50">Команда</a>
                         <Link to="/login" className="text-lg font-medium text-gray-700 hover:text-indigo-600 px-4 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-gray-50">Увійти</Link>
                         <Link to="/register" className="bg-indigo-600 text-white text-lg font-semibold px-6 py-3 rounded-full shadow-lg hover:bg-indigo-700 transition duration-300 ease-in-out transform hover:scale-105">Зареєструватися</Link>
                     </nav>
                 </div>
             </header>
 
+            {/* Мобільне меню (кастомна реалізація замість Headless UI Dialog) */}
+            <div className={`fixed inset-0 z-50 transform transition-transform duration-300 ease-in-out ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'} lg:hidden`}>
+                <div className="absolute inset-0 bg-black bg-opacity-40" onClick={() => setMobileMenuOpen(false)} aria-hidden="true"></div> {/* Затемнення фону */}
+                <div className="fixed inset-y-0 right-0 z-50 w-full overflow-y-auto bg-white px-6 py-6 sm:max-w-sm sm:ring-1 sm:ring-gray-900/10">
+                    <div className="flex items-center justify-between">
+                        <Link to="/" className="-m-1.5 p-1.5" onClick={() => setMobileMenuOpen(false)}>
+                            <span className="sr-only">APEX Finance</span>
+                            <img
+                                className="h-8 w-auto"
+                                src={logoUrl}
+                                alt="APEX Finance Logo"
+                            />
+                        </Link>
+                        <button
+                            type="button"
+                            className="-m-2.5 rounded-md p-2.5 text-gray-700"
+                            onClick={() => setMobileMenuOpen(false)}
+                        >
+                            <span className="sr-only">Закрити меню</span>
+                            <XMarkIcon className="h-6 w-6" aria-hidden="true" />
+                        </button>
+                    </div>
+                    <div className="mt-6 flow-root">
+                        <div className="-my-6 divide-y divide-gray-500/10">
+                            <div className="space-y-2 py-6">
+                                <Link
+                                    to="/nft-project"
+                                    className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
+                                    onClick={() => setMobileMenuOpen(false)}
+                                >
+                                    Проект NFT
+                                </Link>
+                                <a
+                                    href="#features"
+                                    className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
+                                    onClick={() => setMobileMenuOpen(false)}
+                                >
+                                    Продукт
+                                </a>
+                                <a
+                                    href="#features"
+                                    className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
+                                    onClick={() => setMobileMenuOpen(false)}
+                                >
+                                    Функції
+                                </a >
+                                <a
+                                    href="#"
+                                    className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
+                                    onClick={() => setMobileMenuOpen(false)}
+                                >
+                                    Маркетплейс
+                                </a>
+                                <a
+                                    href="#"
+                                    className="-mx-3 block rounded-lg px-3 py-2 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
+                                    onClick={() => setMobileMenuOpen(false)}
+                                >
+                                    Команда
+                                </a>
+                            </div>
+                            <div className="py-6">
+                                <Link
+                                    to="/login"
+                                    className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
+                                    onClick={() => setMobileMenuOpen(false)}
+                                >
+                                    Увійти
+                                </Link>
+                                <Link
+                                    to="/register"
+                                    className="-mx-3 block rounded-lg px-3 py-2.5 text-base font-semibold leading-7 text-gray-900 hover:bg-gray-50"
+                                    onClick={() => setMobileMenuOpen(false)}
+                                >
+                                    Зареєструватися
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-            <section className="relative py-24 md:py-40 text-center overflow-hidden">
+            <section className="relative py-24 md:py-40 text-center overflow-hidden flex-grow">
                 <div className="absolute inset-0 z-0">
                     {/* Приклад тонких фонових градієнтів та форм */}
                     <div className="absolute -top-20 -left-20 w-96 h-96 bg-purple-300 opacity-20 rounded-full filter blur-3xl animate-blob"></div>
@@ -66,21 +180,21 @@ function LandingPage() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-12 px-6">
                             {/* Засновник 1 */}
                             <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 transform hover:scale-[1.03] transition-transform duration-300">
-                                <img src="/1755782105149.jpg" alt="Назарій Горбачук" className="h-32 w-32 rounded-full mx-auto mb-6 border-4 border-indigo-400 object-cover" />
+                                <img src={founder1ImageUrl} alt="Назарій Горбачук" className="h-32 w-32 rounded-full mx-auto mb-6 border-4 border-indigo-400 object-cover" />
                                 <h3 className="font-bold text-2xl text-gray-900 mb-2">Назарій Горбачук</h3>
                                 <p className="text-indigo-600 font-semibold mb-4">Головний виконавчий директор (CEO)</p>
                                 <p className="text-lg text-gray-700">Назарій Вікторович - візіонер, який керує стратегією та інноваціями APEX FINANCE, зосереджуючись на створенні зручних фінансових рішень.</p>
                             </div>
                             {/* Засновник 2 */}
                             <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 transform hover:scale-[1.03] transition-transform duration-300">
-                                <img src="https://placehold.co/120x120/D1D5DB/4B5563?text=А+С" alt="Стефунька Андрій-Святослав" className="h-32 w-32 rounded-full mx-auto mb-6 border-4 border-indigo-400 object-cover" />
+                                <img src={founder2ImageUrl} alt="Стефунька Андрій-Святослав" className="h-32 w-32 rounded-full mx-auto mb-6 border-4 border-indigo-400 object-cover" />
                                 <h3 className="font-bold text-2xl text-gray-900 mb-2">Андрій Стефунька</h3>
                                 <p className="text-indigo-600 font-semibold mb-4">Головний технічний директор (CTO)</p>
                                 <p className="text-lg text-gray-700">Андрій Михайлович відповідає за архітектуру та розробку технологічної платформи APEX FINANCE, забезпечуючи її надійність та масштабованість.</p>
                             </div>
                             {/* Засновник 3 */}
                             <div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 transform hover:scale-[1.03] transition-transform duration-300">
-                                <img src="https://placehold.co/120x120/D1D5DB/4B5563?text=А+Щ" alt="Щерба Андрій" className="h-32 w-32 rounded-full mx-auto mb-6 border-4 border-indigo-400 object-cover" />
+                                <img src={founder3ImageUrl} alt="Щерба Андрій" className="h-32 w-32 rounded-full mx-auto mb-6 border-4 border-indigo-400 object-cover" />
                                 <h3 className="font-bold text-2xl text-gray-900 mb-2">Андрій Щерба</h3>
                                 <p className="text-indigo-600 font-semibold mb-4">Головний фінансовий директор (CFO)</p>
                                 <p className="text-lg text-gray-700">Андрій Анатолійович керує фінансовими операціями та стратегією, забезпечуючи стабільний ріст та відповідність вимогам APEX FINANCE.</p>
@@ -118,19 +232,19 @@ function LandingPage() {
                         {/* Картка 4: Управління цілями */}
                         <div className="p-10 rounded-2xl shadow-xl bg-gradient-to-br from-orange-50 to-red-50 transform hover:-translate-y-3 transition-transform duration-300 ease-out border border-orange-100">
                             <RocketLaunchIcon className="h-16 w-16 text-orange-600 mx-auto mb-8" />
-                            <h3 className="text-3xl font-bold mb-4 text-gray-900">Управління цілями</h3>
+                            <h3 className="font-bold text-3xl mb-4 text-gray-900">Управління цілями</h3>
                             <p className="text-lg text-gray-700">Встановлюйте та відстежуйте свої фінансові цілі – від великих покупок до пенсії – з нашими інтуїтивно зрозумілими інструментами.</p>
                         </div>
                         {/* Картка 5: Відстеження транзакцій */}
                         <div className="p-10 rounded-2xl shadow-xl bg-gradient-to-br from-yellow-50 to-amber-50 transform hover:-translate-y-3 transition-transform duration-300 ease-out border border-yellow-100">
                             <CheckCircleIcon className="h-16 w-16 text-yellow-600 mx-auto mb-8" />
-                            <h3 className="text-3xl font-bold mb-4 text-gray-900">Відстеження транзакцій</h3>
+                            <h3 className="font-bold text-3xl mb-4 text-gray-900">Відстеження транзакцій</h3>
                             <p className="text-lg text-gray-700">Легко відстежуйте всі свої транзакції, категоризуйте їх та отримуйте повний огляд своїх витрат.</p>
                         </div>
                         {/* Картка 6: Спільне використання */}
                         <div className="p-10 rounded-2xl shadow-xl bg-gradient-to-br from-pink-50 to-fuchsia-50 transform hover:-translate-y-3 transition-transform duration-300 ease-out border border-pink-100">
                             <UserGroupIcon className="h-16 w-16 text-fuchsia-600 mx-auto mb-8" />
-                            <h3 className="text-3xl font-bold mb-4 text-gray-900">Спільне використання</h3>
+                            <h3 className="font-bold text-3xl mb-4 text-gray-900">Спільне використання</h3>
                             <p className="text-lg text-gray-700">Спільне управління фінансами з партнером або сім'єю для досягнення спільних цілей.</p>
                         </div>
                     </div>
@@ -171,7 +285,7 @@ function LandingPage() {
                 </div>
             </section>
 
-            {/* From Famous People Section */}
+            {/* Секція "Від відомих особистостей" */}
             <section className="py-24 bg-gradient-to-br from-blue-50 via-gray-50 to-purple-50">
                 <div className="max-w-7xl mx-auto px-6 text-center">
                     <h2 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-16">
@@ -302,8 +416,8 @@ function LandingPage() {
                     <p>&copy; {new Date().getFullYear()} APEX FINANCE. Всі права захищені.</p>
                 </div>
             </footer>
-             {/* Tailwind CSS keyframes for animations */}
-             <style>
+             {/* Tailwind CSS keyframes для анімацій */}
+            <style>
                 {`
                 @keyframes blob {
                     0% {
