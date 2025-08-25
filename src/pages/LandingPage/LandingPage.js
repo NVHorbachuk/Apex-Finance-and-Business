@@ -10,7 +10,17 @@ const logoUrl = "/image.png";
 function LandingPage() {
     return (
         <div className="min-h-screen bg-gradient-to-br from-purple-100 via-blue-100 to-green-100 font-['Inter'] text-gray-900">
+             {/* Top Notification Banner */}
+            <div className="bg-emerald-500 text-white p-3 text-center text-sm flex items-center justify-center space-x-2">
+                <span>
+                    Розблокуйте Apex Finance Premium з NFT 🔗
+                </span>
+                <a href="#" className="underline hover:text-gray-200 transition-colors" target="_blank" rel="noopener noreferrer">
+                    Натисніть, щоб дізнатися про наш останній проект! 🚀
+                </a>
+            </div>
             {/* Навігаційна панель */}
+
             <header className="py-5 px-8 bg-white bg-opacity-90 backdrop-blur-sm shadow-lg rounded-b-3xl">
                 <div className="max-w-8xl mx-auto flex justify-between items-center">
                     <div className="flex items-center">

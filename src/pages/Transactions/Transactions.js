@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
     HomeIcon, ClipboardDocumentListIcon, BanknotesIcon, CreditCardIcon, ListBulletIcon,
     UserCircleIcon, PlusIcon, PencilIcon, TrashIcon, ExclamationTriangleIcon,
-    ChevronDownIcon, MagnifyingGlassIcon, FunnelIcon, CalendarDaysIcon, XMarkIcon
+    ChevronDownIcon, MagnifyingGlassIcon, XMarkIcon
 } from "@heroicons/react/24/outline";
-import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, where } from "firebase/firestore";
+import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { signOut } from 'firebase/auth';
 
-const logoUrl = "/image.png";
+const logoUrl = "/image.png"; // Placeholder for the logo. Ensure this path is correct.
 
 const currencies = [
     { code: 'USD', name: 'United States Dollar', symbol: '$' },
@@ -37,7 +37,7 @@ function Transactions({ db, auth, userId, userData }) {
         category: "Other",
         date: new Date().toISOString().substring(0, 10),
         currency: "UAH",
-        account: "" // Will be set to the first available account or require user selection
+        accountId: "" // Will be set to the first available account or require user selection
     });
     const [editTransaction, setEditTransaction] = useState(null);
     const [selectedTransaction, setSelectedTransaction] = useState(null);
@@ -72,9 +72,9 @@ function Transactions({ db, auth, userId, userData }) {
         unsubscribes.push(onSnapshot(accountsCollectionRef, (snapshot) => {
             const fetchedAccounts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setAccounts(fetchedAccounts);
-            // Set default account for new transaction if available
-            if (fetchedAccounts.length > 0 && !newTransaction.account) {
-                setNewTransaction(prev => ({ ...prev, account: fetchedAccounts[0].id }));
+            // Set default account for new transaction if available and not already set
+            if (fetchedAccounts.length > 0 && newTransaction.accountId === "") {
+                setNewTransaction(prev => ({ ...prev, accountId: fetchedAccounts[0].id }));
             }
         }, (err) => {
             console.error("Transactions.js: Помилка отримання рахунків:", err);
@@ -100,7 +100,7 @@ function Transactions({ db, auth, userId, userData }) {
         }));
 
         return () => unsubscribes.forEach(unsub => unsub());
-    }, [db, userId, appId]);
+    }, [db, userId, appId, newTransaction.accountId]); // Added newTransaction.accountId to dependencies for initial account setting
 
     // Apply filters and sorting
     useEffect(() => {
@@ -139,6 +139,7 @@ function Transactions({ db, auth, userId, userData }) {
                 valA = new Date(a.date);
                 valB = new Date(b.date);
             } else if (sortBy === "amount") {
+                // Sort by signed amount, which is already stored in Firestore
                 valA = parseFloat(a.amount);
                 valB = parseFloat(b.amount);
             }
@@ -149,13 +150,14 @@ function Transactions({ db, auth, userId, userData }) {
     }, [transactions, searchTerm, filterType, filterCategory, filterStartDate, filterEndDate, sortBy, sortOrder]);
 
     const handleAddTransaction = async () => {
-        if (!db || !userId || !newTransaction.description.trim() || isNaN(parseFloat(newTransaction.amount)) || !newTransaction.date.trim() || !newTransaction.account) {
+        if (!db || !userId || !newTransaction.description.trim() || isNaN(parseFloat(newTransaction.amount)) || !newTransaction.date.trim() || !newTransaction.accountId) {
             setError(new Error("Будь ласка, заповніть усі обов'язкові поля."));
             return;
         }
 
         try {
             const amount = parseFloat(newTransaction.amount);
+            // Ensure transaction amount is correctly signed based on type
             const transactionAmount = newTransaction.type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
 
             const transactionsCollectionRef = collection(db, `/artifacts/${appId}/users/${userId}/transactions`);
@@ -164,25 +166,27 @@ function Transactions({ db, auth, userId, userData }) {
                 amount: transactionAmount,
                 type: newTransaction.type,
                 category: newTransaction.category,
-                date: newTransaction.date,
+                date: newTransaction.date, // Store as string "YYYY-MM-DD"
                 currency: newTransaction.currency,
-                accountId: newTransaction.account,
+                accountId: newTransaction.accountId,
                 createdAt: new Date().toISOString(),
                 userId: userId
             });
 
             // Update account balance
-            const accountDocRef = doc(db, `/artifacts/${appId}/users/${userId}/accounts`, newTransaction.account);
-            const currentAccount = accounts.find(acc => acc.id === newTransaction.account);
+            const accountDocRef = doc(db, `/artifacts/${appId}/users/${userId}/accounts`, newTransaction.accountId);
+            const currentAccount = accounts.find(acc => acc.id === newTransaction.accountId);
             if (currentAccount) {
                 await updateDoc(accountDocRef, {
-                    balance: currentAccount.balance + transactionAmount
+                    balance: (currentAccount.balance || 0) + transactionAmount
                 });
+            } else {
+                console.warn("Transactions.js: Рахунок для оновлення балансу не знайдено:", newTransaction.accountId);
             }
 
             setNewTransaction({
                 description: "", amount: "", type: "expense", category: "Other",
-                date: new Date().toISOString().substring(0, 10), currency: "UAH", account: accounts[0]?.id || ""
+                date: new Date().toISOString().substring(0, 10), currency: "UAH", accountId: accounts[0]?.id || ""
             });
             setShowAddModal(false);
             setError(null);
@@ -193,7 +197,7 @@ function Transactions({ db, auth, userId, userData }) {
     };
 
     const handleEditTransaction = async () => {
-        if (!db || !userId || !editTransaction.description.trim() || isNaN(parseFloat(editTransaction.amount)) || !editTransaction.date.trim() || !editTransaction.accountId) {
+        if (!editTransaction || !db || !userId || !editTransaction.description.trim() || isNaN(parseFloat(editTransaction.amount)) || !editTransaction.date.trim() || !editTransaction.accountId) {
             setError(new Error("Будь ласка, заповніть усі обов'язкові поля для редагування."));
             return;
         }
@@ -205,9 +209,9 @@ function Transactions({ db, auth, userId, userData }) {
                 return;
             }
 
-            const oldAmount = oldTransaction.amount;
-            const newAmount = parseFloat(editTransaction.amount);
-            const newTransactionAmount = editTransaction.type === 'expense' ? -Math.abs(newAmount) : Math.abs(newAmount);
+            const oldAmount = oldTransaction.amount; // This is the signed amount from Firestore
+            const newAmountValue = parseFloat(editTransaction.amount); // User-entered, should be positive
+            const newTransactionAmount = editTransaction.type === 'expense' ? -Math.abs(newAmountValue) : Math.abs(newAmountValue);
 
             const transactionDocRef = doc(db, `/artifacts/${appId}/users/${userId}/transactions`, editTransaction.id);
             await updateDoc(transactionDocRef, {
@@ -223,12 +227,15 @@ function Transactions({ db, auth, userId, userData }) {
             // Adjust account balance
             const accountDocRef = doc(db, `/artifacts/${appId}/users/${userId}/accounts`, editTransaction.accountId);
             const currentAccount = accounts.find(acc => acc.id === editTransaction.accountId);
+
             if (currentAccount) {
-                // Remove old amount, add new amount
+                // The change in balance is (new_amount - old_amount)
                 const balanceChange = newTransactionAmount - oldAmount;
                 await updateDoc(accountDocRef, {
-                    balance: currentAccount.balance + balanceChange
+                    balance: (currentAccount.balance || 0) + balanceChange
                 });
+            } else {
+                console.warn("Transactions.js: Рахунок для оновлення балансу не знайдено:", editTransaction.accountId);
             }
 
             setSelectedTransaction(null);
@@ -255,8 +262,10 @@ function Transactions({ db, auth, userId, userData }) {
 
                 if (currentAccount) {
                     await updateDoc(accountDocRef, {
-                        balance: currentAccount.balance - selectedTransaction.amount // Subtracting the amount effectively adds it back if it was an expense (negative) or removes it if income (positive)
+                        balance: (currentAccount.balance || 0) - selectedTransaction.amount // Subtracting the amount effectively adds it back if it was an expense (negative) or removes it if income (positive)
                     });
+                } else {
+                    console.warn("Transactions.js: Рахунок для оновлення балансу не знайдено при видаленні:", selectedTransaction.accountId);
                 }
 
                 await deleteDoc(doc(db, `/artifacts/${appId}/users/${userId}/transactions`, selectedTransaction.id));
@@ -364,7 +373,7 @@ function Transactions({ db, auth, userId, userData }) {
                             />
                         </div>
 
-                        <div>
+                        <div className="relative">
                             <label htmlFor="filterType" className="sr-only">Тип транзакції</label>
                             <select
                                 id="filterType"
@@ -379,7 +388,7 @@ function Transactions({ db, auth, userId, userData }) {
                             <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
                         </div>
 
-                        <div>
+                        <div className="relative">
                             <label htmlFor="filterCategory" className="sr-only">Категорія</label>
                             <select
                                 id="filterCategory"
@@ -415,7 +424,7 @@ function Transactions({ db, auth, userId, userData }) {
 
                     <div className="flex justify-between items-center mb-6">
                         <div className="flex space-x-4">
-                            <div>
+                            <div className="relative">
                                 <label htmlFor="sortBy" className="sr-only">Сортувати за</label>
                                 <select
                                     id="sortBy"
@@ -428,7 +437,7 @@ function Transactions({ db, auth, userId, userData }) {
                                 </select>
                                 <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
                             </div>
-                            <div>
+                            <div className="relative">
                                 <label htmlFor="sortOrder" className="sr-only">Порядок сортування</label>
                                 <select
                                     id="sortOrder"
@@ -469,6 +478,8 @@ function Transactions({ db, auth, userId, userData }) {
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {filteredTransactions.map(transaction => {
                                         const currencySymbol = currencies.find(c => c.code === transaction.currency)?.symbol || '';
+                                        // Display amount: if expense, show negative sign, otherwise positive, and always show symbol.
+                                        // Math.abs ensures we work with a positive value for display, then add the sign.
                                         const displayAmount = `${transaction.type === 'expense' ? '-' : '+'}${currencySymbol}${Math.abs(transaction.amount).toFixed(2)}`;
                                         const amountColorClass = transaction.type === 'expense' ? 'text-red-600' : 'text-green-600';
                                         const accountName = accounts.find(acc => acc.id === transaction.accountId)?.name || 'Невідомий рахунок';
@@ -490,7 +501,9 @@ function Transactions({ db, auth, userId, userData }) {
                                                     <button
                                                         onClick={() => {
                                                             setSelectedTransaction(transaction);
-                                                            setEditTransaction({ ...transaction, amount: Math.abs(transaction.amount) }); // Ensure amount is positive for editing
+                                                            // For editing, we show a positive amount for the user to adjust.
+                                                            // The type determines if it's income or expense when saving.
+                                                            setEditTransaction({ ...transaction, amount: Math.abs(transaction.amount) });
                                                             setShowEditModal(true);
                                                         }}
                                                         className="text-indigo-600 hover:text-indigo-900 transition-colors duration-200 p-2 rounded-md hover:bg-indigo-50"
@@ -528,7 +541,7 @@ function Transactions({ db, auth, userId, userData }) {
                             <h2 className="text-2xl font-bold text-gray-800 mb-5 text-center">Додати нову транзакцію</h2>
 
                             <div className="mb-4 space-y-3">
-                                <div>
+                                <div className="relative">
                                     <label htmlFor="newTransactionDescription" className="block text-sm font-medium text-gray-700 mb-1">Опис</label>
                                     <input
                                         id="newTransactionDescription"
@@ -540,7 +553,7 @@ function Transactions({ db, auth, userId, userData }) {
                                         required
                                     />
                                 </div>
-                                <div>
+                                <div className="relative">
                                     <label htmlFor="newTransactionAmount" className="block text-sm font-medium text-gray-700 mb-1">Сума</label>
                                     <input
                                         id="newTransactionAmount"
@@ -553,7 +566,7 @@ function Transactions({ db, auth, userId, userData }) {
                                         required
                                     />
                                 </div>
-                                <div>
+                                <div className="relative">
                                     <label htmlFor="newTransactionType" className="block text-sm font-medium text-gray-700 mb-1">Тип</label>
                                     <select
                                         id="newTransactionType"
@@ -566,7 +579,7 @@ function Transactions({ db, auth, userId, userData }) {
                                     </select>
                                     <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
                                 </div>
-                                <div>
+                                <div className="relative">
                                     <label htmlFor="newTransactionCategory" className="block text-sm font-medium text-gray-700 mb-1">Категорія</label>
                                     <input
                                         id="newTransactionCategory"
@@ -583,7 +596,7 @@ function Transactions({ db, auth, userId, userData }) {
                                         ))}
                                     </datalist>
                                 </div>
-                                <div>
+                                <div className="relative">
                                     <label htmlFor="newTransactionDate" className="block text-sm font-medium text-gray-700 mb-1">Дата</label>
                                     <input
                                         id="newTransactionDate"
@@ -594,7 +607,7 @@ function Transactions({ db, auth, userId, userData }) {
                                         required
                                     />
                                 </div>
-                                <div>
+                                <div className="relative">
                                     <label htmlFor="newTransactionCurrency" className="block text-sm font-medium text-gray-700 mb-1">Валюта</label>
                                     <select
                                         id="newTransactionCurrency"
@@ -609,12 +622,12 @@ function Transactions({ db, auth, userId, userData }) {
                                     </select>
                                     <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
                                 </div>
-                                <div>
+                                <div className="relative">
                                     <label htmlFor="newTransactionAccount" className="block text-sm font-medium text-gray-700 mb-1">Рахунок</label>
                                     <select
                                         id="newTransactionAccount"
-                                        value={newTransaction.account}
-                                        onChange={e => setNewTransaction({ ...newTransaction, account: e.target.value })}
+                                        value={newTransaction.accountId}
+                                        onChange={e => setNewTransaction({ ...newTransaction, accountId: e.target.value })}
                                         className="w-full p-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm appearance-none bg-white pr-8"
                                         required
                                     >
@@ -661,7 +674,7 @@ function Transactions({ db, auth, userId, userData }) {
                             <h2 className="text-2xl font-bold text-gray-800 mb-5 text-center">Редагувати транзакцію</h2>
 
                             <div className="mb-4 space-y-3">
-                                <div>
+                                <div className="relative">
                                     <label htmlFor="editTransactionDescription" className="block text-sm font-medium text-gray-700 mb-1">Опис</label>
                                     <input
                                         id="editTransactionDescription"
@@ -672,7 +685,7 @@ function Transactions({ db, auth, userId, userData }) {
                                         required
                                     />
                                 </div>
-                                <div>
+                                <div className="relative">
                                     <label htmlFor="editTransactionAmount" className="block text-sm font-medium text-gray-700 mb-1">Сума</label>
                                     <input
                                         id="editTransactionAmount"
@@ -684,7 +697,7 @@ function Transactions({ db, auth, userId, userData }) {
                                         required
                                     />
                                 </div>
-                                <div>
+                                <div className="relative">
                                     <label htmlFor="editTransactionType" className="block text-sm font-medium text-gray-700 mb-1">Тип</label>
                                     <select
                                         id="editTransactionType"
@@ -697,7 +710,7 @@ function Transactions({ db, auth, userId, userData }) {
                                     </select>
                                     <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
                                 </div>
-                                <div>
+                                <div className="relative">
                                     <label htmlFor="editTransactionCategory" className="block text-sm font-medium text-gray-700 mb-1">Категорія</label>
                                     <input
                                         id="editTransactionCategory"
@@ -713,7 +726,7 @@ function Transactions({ db, auth, userId, userData }) {
                                         ))}
                                     </datalist>
                                 </div>
-                                <div>
+                                <div className="relative">
                                     <label htmlFor="editTransactionDate" className="block text-sm font-medium text-gray-700 mb-1">Дата</label>
                                     <input
                                         id="editTransactionDate"
@@ -724,7 +737,7 @@ function Transactions({ db, auth, userId, userData }) {
                                         required
                                     />
                                 </div>
-                                <div>
+                                <div className="relative">
                                     <label htmlFor="editTransactionCurrency" className="block text-sm font-medium text-gray-700 mb-1">Валюта</label>
                                     <select
                                         id="editTransactionCurrency"
@@ -739,7 +752,7 @@ function Transactions({ db, auth, userId, userData }) {
                                     </select>
                                     <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-600 pointer-events-none" />
                                 </div>
-                                <div>
+                                <div className="relative">
                                     <label htmlFor="editTransactionAccount" className="block text-sm font-medium text-gray-700 mb-1">Рахунок</label>
                                     <select
                                         id="editTransactionAccount"
@@ -779,7 +792,7 @@ function Transactions({ db, auth, userId, userData }) {
                 )}
 
                 {/* Delete Confirmation Modal */}
-                {showDeleteConfirm && (
+                {showDeleteConfirm && selectedTransaction && (
                     <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center z-50 p-4">
                         <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full">
                             <div className="flex items-center text-red-500 mb-4">

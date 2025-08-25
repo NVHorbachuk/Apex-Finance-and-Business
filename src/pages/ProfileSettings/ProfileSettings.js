@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, doc, setDoc } from 'firebase/firestore';
+import { onSnapshot, doc, setDoc } from 'firebase/firestore';
 import {
-    UserCircleIcon, HomeIcon, BanknotesIcon, CreditCardIcon, Squares2X2Icon, ListBulletIcon, ClipboardDocumentListIcon, UsersIcon
+    UserCircleIcon, HomeIcon, BanknotesIcon, CreditCardIcon, ListBulletIcon, ClipboardDocumentListIcon, UsersIcon
 } from '@heroicons/react/24/outline';
 import { Link } from 'react-router-dom';
 

@@ -1,4 +1,3 @@
-// src/App.js
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 
@@ -17,8 +16,8 @@ import Transactions from './pages/Transactions/Transactions';
 import Accounts from './pages/Accounts/Accounts';
 import AdminPanel from './pages/AdminPanel/AdminPanel';
 import ProfileSettings from './pages/ProfileSettings/ProfileSettings';
-import LandingPage from './pages/LandingPage/LandingPage'; // Імпорт нової LandingPage
-
+import LandingPage from './pages/LandingPage/LandingPage';
+import NFTProjectPage from './pages/NFTProjectPage/NFTProjectPage';
 // Функція-обгортка для захищених маршрутів
 function ProtectedRoute({ children, isAuthenticated, db, auth, userId, userData, setGlobalUserData }) {
     const navigate = useNavigate();
@@ -160,11 +159,11 @@ function App() {
                 <Routes>
                     {/* Нова головна сторінка */}
                     <Route path="/" element={<LandingPage />} />
-
+                    <Route path="/nft-project" element={<NFTProjectPage />} />
                     {/* Передача setUserId та setUserData до компонента Login */}
                     <Route path="/login" element={<Login db={db} auth={auth} setUserId={setUserId} setUserData={setUserData} />} />
                     <Route path="/register" element={<Register db={db} auth={auth} />} />
-
+                    
                     {/* Dashboard тепер на окремому маршруті */}
                     <Route path="/dashboard" element={
                         <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData}>

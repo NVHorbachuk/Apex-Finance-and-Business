@@ -5,7 +5,7 @@ import {
     TrashIcon,
     FlagIcon, 
     XMarkIcon, 
-    HomeIcon, ClipboardDocumentListIcon, BellIcon, UserCircleIcon, ChevronDownIcon, BanknotesIcon, CreditCardIcon, Squares2X2Icon, ListBulletIcon, UsersIcon
+    HomeIcon, ClipboardDocumentListIcon, BellIcon, UserCircleIcon, ChevronDownIcon, BanknotesIcon, CreditCardIcon, ListBulletIcon, UsersIcon
 } from '@heroicons/react/24/outline';
 
 // Імпорт функцій Firestore
