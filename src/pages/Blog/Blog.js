@@ -3,12 +3,12 @@ import { Link } from 'react-router-dom';
 import {
     HomeIcon, ClipboardDocumentListIcon, BellIcon, UserCircleIcon,
     BanknotesIcon, CreditCardIcon, UsersIcon, ListBulletIcon, NewspaperIcon
-} from '@heroicons/react/24/outline'; // Імпортуємо іконки
+} from '@heroicons/react/24/outline';
 
 const logoUrl = "/image.png";
 
 function Blog({ userId, userData }) {
-    // Фіктивні дані для блогу
+    
     const [blogPosts] = useState([
         {
             id: 1,

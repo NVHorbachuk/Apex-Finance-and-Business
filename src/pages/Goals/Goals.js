@@ -3,8 +3,8 @@ import {
     PlusCircleIcon,
     PencilIcon,
     TrashIcon,
-    FlagIcon, // Можна використовувати для іконок цілей
-    XMarkIcon, // Для закриття модального вікна
+    FlagIcon, 
+    XMarkIcon, 
     HomeIcon, ClipboardDocumentListIcon, BellIcon, UserCircleIcon, ChevronDownIcon, BanknotesIcon, CreditCardIcon, Squares2X2Icon, ListBulletIcon, UsersIcon
 } from '@heroicons/react/24/outline';
 
@@ -17,10 +17,10 @@ import { useNavigate } from 'react-router-dom';
 // Імпорт компонентів бічної панелі та хедера
 import { Link } from 'react-router-dom';
 
-// URL для логотипу (посилається на файл у папці public)
+// URL для логотипу
 const logoUrl = "/image.png";
 
-// Доступні валюти (скопійовано з Dashboard.js для послідовності)
+// Доступні валюти
 const currencies = [
     { code: 'USD', name: 'United States Dollar', symbol: '$' },
     { code: 'EUR', name: 'Euro', symbol: '€' },

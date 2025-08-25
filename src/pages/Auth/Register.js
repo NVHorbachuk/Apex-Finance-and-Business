@@ -16,11 +16,11 @@ function Register() {
   const handleRegister = async (e) => {
     e.preventDefault();
     setError('');
-    setLoading(true); // Починаємо завантаження
+    setLoading(true);
 
     if (password !== confirmPassword) {
       setError('Паролі не співпадають!');
-      setLoading(false); // Завершуємо завантаження, якщо паролі не співпадають
+      setLoading(false);
       return;
     }
 
@@ -28,7 +28,7 @@ function Register() {
       const auth = getAuth();
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       console.log('Користувач успішно зареєстрований:', userCredential.user);
-      navigate('/'); // Перенаправляємо на дашборд після успішної реєстрації
+      navigate('/'); 
     } catch (error) {
       console.error('Помилка реєстрації:', error.message);
       switch (error.code) {
@@ -45,7 +45,7 @@ function Register() {
           setError(`Помилка реєстрації: ${error.message || 'Будь ласка, спробуйте ще раз.'}`);
       }
     } finally {
-      setLoading(false); // Завершуємо завантаження незалежно від успіху/невдачі
+      setLoading(false); 
     }
   };
 
@@ -58,7 +58,6 @@ function Register() {
             src={logoUrl}
             alt="Apex Finance Logo"
             className="mx-auto w-28 h-28 object-contain rounded-full shadow-md"
-            // Додаємо заглушку, якщо зображення не завантажується
             onError={(e) => {
               e.target.onerror = null;
               e.target.src = "https://placehold.co/112x112/A7C7E7/FFFFFF?text=Logo";

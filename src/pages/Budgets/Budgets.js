@@ -10,7 +10,7 @@ import { signOut } from 'firebase/auth';
 
 const logoUrl = "/image.png";
 
-// Available currencies for selection (копіюємо з Dashboard.js для послідовності)
+// Available currencies for selection
 const currencies = [
     { code: 'USD', name: 'United States Dollar', symbol: '$' },
     { code: 'EUR', name: 'Euro', symbol: '€' },
@@ -24,7 +24,7 @@ const currencies = [
 
 function Budgets({ db, auth, userId, userData }) {
     const [budgets, setBudgets] = useState([]);
-    const [loading, setLoading] = useState(true); // Виправлено: використовувати useState для ініціалізації
+    const [loading, setLoading] = useState(true); // useState для ініціалізації
     const [error, setError] = useState(null);
 
     const [showCreateModal, setShowCreateModal] = useState(false);

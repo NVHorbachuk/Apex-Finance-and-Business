@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
     HomeIcon, ClipboardDocumentListIcon, BellIcon, UserCircleIcon,
     BanknotesIcon, CreditCardIcon, UsersIcon, ListBulletIcon, ChatBubbleLeftRightIcon, PlusIcon
-} from '@heroicons/react/24/outline'; // Імпортуємо іконки
+} from '@heroicons/react/24/outline';
 
 const logoUrl = "/image.png";
 
@@ -76,7 +76,7 @@ function Forum({ userId, userData }) {
 
     const handleAddReply = () => {
         if (newReply.trim() && selectedTopic) {
-            // Це просто імітація додавання коментаря. В реальному застосунку це буде API-виклик.
+            
             const updatedTopics = topics.map(topic =>
                 topic.id === selectedTopic.id
                     ? {

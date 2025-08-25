@@ -5,57 +5,45 @@ import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-route
 // Імпортуємо Firebase
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, signInWithCustomToken, signInAnonymously } from 'firebase/auth';
-import { getFirestore, doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore'; // Імпортуємо doc, getDoc, setDoc, onSnapshot
+import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 
 // Імпортуємо компоненти сторінок
 import Dashboard from './pages/Dashboard/Dashboard';
-import Login from './pages/Auth/Login'; // Corrected path
-import Register from './pages/Auth/Register'; // Corrected path
+import Login from './pages/Auth/Login';
+import Register from './pages/Auth/Register';
 import Goals from './pages/Goals/Goals';
 import Budgets from './pages/Budgets/Budgets';
 import Transactions from './pages/Transactions/Transactions';
 import Accounts from './pages/Accounts/Accounts';
 import AdminPanel from './pages/AdminPanel/AdminPanel';
 import ProfileSettings from './pages/ProfileSettings/ProfileSettings';
-import LandingPage from './pages/LandingPage/LandingPage'; // Import LandingPage
+import LandingPage from './pages/LandingPage/LandingPage'; // Імпорт нової LandingPage
 
-// New static pages
-import AboutUs from './pages/AboutUs/AboutUs';
-import Careers from './pages/Careers/Careers';
-import ContactUs from './pages/ContactUs/ContactUs';
-import Blog from './pages/Blog/Blog';
-import Forum from './pages/Forum/Forum';
-import PrivacyPolicy from './pages/PrivacyPolicy/PrivacyPolicy';
-import TermsOfUse from './pages/TermsOfUse/TermsOfUse';
-import CookiePolicy from './pages/CookiePolicy/CookiePolicy';
-
-
-// Wrapper function for protected routes
+// Функція-обгортка для захищених маршрутів
 function ProtectedRoute({ children, isAuthenticated, db, auth, userId, userData, setGlobalUserData }) {
     const navigate = useNavigate();
     const currentLocation = window.location.pathname;
 
     useEffect(() => {
-        // If user is not authenticated and tries to access a protected route, redirect to login page
-        // Protected routes are defined implicitly by NOT being in publicPaths
-        if (isAuthenticated === false && ![
-            '/', '/login', '/register', '/about-us', '/careers', '/contact-us',
-            '/blog', '/forum', '/privacy-policy', '/terms-of-use', '/cookie-policy'
-        ].includes(currentLocation)) {
+        // Якщо користувач не автентифікований і намагається отримати доступ до захищеного маршруту (крім '/'), перенаправляємо на сторінку входу
+        if (isAuthenticated === false && currentLocation !== '/login' && currentLocation !== '/register' && currentLocation !== '/') {
             navigate('/login');
         }
-        // If user is authenticated and on login/register pages, redirect to dashboard
+        // Якщо користувач автентифікований і знаходиться на сторінках входу/реєстрації, перенаправляємо на дашборд
         else if (isAuthenticated === true && (currentLocation === '/login' || currentLocation === '/register')) {
-            navigate('/dashboard'); // Redirect to /dashboard
+            navigate('/dashboard'); // Перенаправляємо на /dashboard
         }
     }, [isAuthenticated, navigate, currentLocation]);
 
-    // Show loading while authentication status is being determined
     if (isAuthenticated === null) {
         return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans']">Завантаження...</div>;
     }
 
-    // Only render children with Firebase props if authenticated, otherwise null (will be redirected if protected)
+    // Якщо це "/" і користувач не автентифікований, дозволяємо відобразити LandingPage без db, auth, userId, userData
+    if (currentLocation === '/' && isAuthenticated === false) {
+        return children;
+    }
+
     return isAuthenticated ? React.cloneElement(children, { db, auth, userId, userData, setGlobalUserData }) : null;
 }
 
@@ -64,9 +52,8 @@ function App() {
     const [db, setDb] = useState(null);
     const [auth, setAuth] = useState(null);
     const [userId, setUserId] = useState(null);
-    const [userData, setUserData] = useState(null); // New state for user profile data
+    const [userData, setUserData] = useState(null);
 
-    // Function to update userData from child components
     const setGlobalUserData = (data) => {
         setUserData(data);
     };
@@ -101,11 +88,11 @@ function App() {
                     try {
                         await signInWithCustomToken(authInstance, initialAuthToken);
                     } catch (error) {
-                        console.error("App.js: Error signing in with custom token:", error);
+                        console.error("App.js: Помилка входу з custom token:", error);
                         try {
                             await signInAnonymously(authInstance);
                         } catch (anonError) {
-                            console.error("App.js: Error signing in anonymously:", anonError);
+                            console.error("App.js: Помилка анонімного входу:", anonError);
                             setIsAuthenticated(false);
                             setUserId(null);
                         }
@@ -114,7 +101,7 @@ function App() {
                     try {
                         await signInAnonymously(authInstance);
                     } catch (anonError) {
-                        console.error("App.js: Error signing in anonymously (no initialAuthToken):", anonError);
+                        console.error("App.js: Помилка анонімного входу (без initialAuthToken):", anonError);
                         setIsAuthenticated(false);
                         setUserId(null);
                     }
@@ -127,29 +114,28 @@ function App() {
                     setIsAuthenticated(true);
                     setUserId(user.uid);
 
-                    // Get user profile data from Firestore using onSnapshot for reactivity
-                    try {
-                        const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
-                        const userProfileRef = doc(dbInstance, `/artifacts/${appId}/public/data/user_profiles`, user.uid);
-                        // Using onSnapshot to react to real-time changes
-                        const unsubscribeProfile = onSnapshot(userProfileRef, (docSnap) => {
-                            if (docSnap.exists()) {
-                                setUserData({ id: user.uid, ...docSnap.data() });
-                            } else {
-                                // If profile doesn't exist, initialize its email from Auth.
-                                // firstName and lastName will be empty until the user enters them.
-                                setUserData({ id: user.uid, email: user.email, firstName: '', lastName: '' });
-                                // Create an empty profile so it exists in Firestore upon first login.
-                                setDoc(userProfileRef, { email: user.email, userId: user.uid, createdAt: new Date().toISOString() }, { merge: true }).catch(err => console.error("Error creating initial user profile:", err));
-                            }
-                        }, (error) => {
-                            console.error("App.js: Error getting user profile from onSnapshot:", error);
-                            setUserData({ id: user.uid, email: user.email, firstName: '', lastName: '' }); // Fallback
-                        });
-                        return () => unsubscribeProfile(); // Unsubscribe when component unmounts or user changes
-                    } catch (profileError) {
-                        console.error("App.js: Error getting user profile (initial fetch):", profileError);
-                        setUserData({ id: user.uid, email: user.email, firstName: '', lastName: '' }); // Fallback
+                    const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
+                    // Змінено шлях для user_profiles на users/${user.uid}/profile/details
+                    const userProfileRef = doc(dbInstance, `/artifacts/${appId}/users/${user.uid}/profile`, 'details');
+                    const userProfileSnap = await getDoc(userProfileRef);
+                    if (userProfileSnap.exists()) {
+                        setUserData({ id: user.uid, ...userProfileSnap.data() });
+                    } else {
+                        // Якщо профайл не існує, створити його з базовими даними
+                        const initialProfileData = {
+                            email: user.email || '',
+                            firstName: '',
+                            lastName: '',
+                            phone: '',
+                            address: '',
+                            city: '',
+                            country: '',
+                            currency: 'UAH',
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString()
+                        };
+                        await setDoc(userProfileRef, initialProfileData);
+                        setUserData(initialProfileData);
                     }
 
                 } else {
@@ -161,7 +147,7 @@ function App() {
 
             return () => unsubscribe();
         } else {
-            console.error("App.js: Firebase configuration unavailable or incomplete. Authentication will not function correctly.");
+            console.error("App.js: Конфігурація Firebase недоступна або неповна. Автентифікація не працюватиме належним чином.");
             setIsAuthenticated(false);
             setUserId(null);
             setUserData(null);
@@ -172,13 +158,14 @@ function App() {
         <Router>
             <main className="flex-grow">
                 <Routes>
-                    {/* New main page, which is now LandingPage */}
+                    {/* Нова головна сторінка */}
                     <Route path="/" element={<LandingPage />} />
 
-                    <Route path="/login" element={<Login db={db} auth={auth} />} />
+                    {/* Передача setUserId та setUserData до компонента Login */}
+                    <Route path="/login" element={<Login db={db} auth={auth} setUserId={setUserId} setUserData={setUserData} />} />
                     <Route path="/register" element={<Register db={db} auth={auth} />} />
 
-                    {/* Protected routes that require authentication and Firebase props */}
+                    {/* Dashboard тепер на окремому маршруті */}
                     <Route path="/dashboard" element={
                         <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData}>
                             <Dashboard />
@@ -214,18 +201,6 @@ function App() {
                             <ProfileSettings />
                         </ProtectedRoute>
                     } />
-
-                    {/* Routes for static pages that do NOT require authentication or special Firebase props.
-                        They receive userId and userData, but these are optional and mostly for consistent header/sidebar display. */}
-                    <Route path="/about-us" element={<AboutUs userId={userId} userData={userData} />} />
-                    <Route path="/careers" element={<Careers userId={userId} userData={userData} />} />
-                    <Route path="/contact-us" element={<ContactUs userId={userId} userData={userData} />} />
-                    <Route path="/blog" element={<Blog userId={userId} userData={userData} />} />
-                    <Route path="/forum" element={<Forum userId={userId} userData={userData} />} />
-                    <Route path="/privacy-policy" element={<PrivacyPolicy userId={userId} userData={userData} />} />
-                    <Route path="/terms-of-use" element={<TermsOfUse userId={userId} userData={userData} />} />
-                    <Route path="/cookie-policy" element={<CookiePolicy userId={userId} userData={userData} />} />
-
                 </Routes>
             </main>
         </Router>

@@ -1,22 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     HomeIcon, ClipboardDocumentListIcon, BellIcon, UserCircleIcon,
-    ChevronDownIcon, BanknotesIcon, CreditCardIcon, Squares2X2Icon, ListBulletIcon, UsersIcon,
+    ChevronDownIcon, BanknotesIcon, CreditCardIcon, ListBulletIcon, UsersIcon,
     PencilIcon, TrashIcon, XMarkIcon, ExclamationTriangleIcon, InformationCircleIcon
 } from '@heroicons/react/24/outline';
-import { collection, doc, getDocs, updateDoc, deleteDoc, getDoc } from 'firebase/firestore'; // Додано getDoc
+import { collection, doc, getDocs, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useNavigate, Link } from 'react-router-dom';
 
 const logoUrl = "/image.png";
 
-// ====================================================================================
-// ВАЖЛИВО: ЗАМІНІТЬ ЦЕ НА ВАШ АКТУАЛЬНИЙ ADMIN USER ID з Firebase Authentication.
-// Це userId облікового запису, який має доступ до адмін-панелі.
-// ====================================================================================
-const ADMIN_USER_ID = "CawE33GEkZhLFsapAdBr3saDV3F3"; // <<<--- ЗМІНЕНО!
+// Фактичний userId адміністратора з вашої Firebase Authentication Горбачук Назарій - CawE33GEkZhLFsapAdBr3saDV3F3
+const ADMIN_USER_ID = "CawE33GEkZhLFsapAdBr3saDV3F3";
 
-function AdminPanel({ db, auth, userId }) {
+function AdminPanel({ db, auth, userId, userData }) {
     const [allUsersData, setAllUsersData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -66,7 +63,8 @@ function AdminPanel({ db, auth, userId }) {
 
     // Перевірка доступу адміністратора
     useEffect(() => {
-        if (!userId || userId !== ADMIN_USER_ID) {
+        // userId може бути null або undefined на початку, тому чекаємо, поки він буде встановлений
+        if (userId !== null && userId !== undefined && userId !== ADMIN_USER_ID) {
             navigate('/dashboard'); // Перенаправити, якщо користувач не є адміністратором
         }
     }, [userId, navigate]);
@@ -103,17 +101,19 @@ function AdminPanel({ db, auth, userId }) {
             setAllUsersData(usersList);
             setLoading(false);
         } catch (err) {
-                console.error("Помилка отримання даних користувачів:", err);
+            console.error("Помилка отримання даних користувачів:", err);
             setError(new Error(`Помилка завантаження користувачів: ${err.message}`));
             setLoading(false);
         }
     }, [db, appId]);
 
     useEffect(() => {
-        if (userId === ADMIN_USER_ID) { // Тільки якщо це адміністратор, намагаємося завантажити
+        // Завантажуємо користувачів, лише якщо userId є ADMIN_USER_ID
+        if (userId === ADMIN_USER_ID) {
             fetchAllUsers();
-        } else {
-            setLoading(false); // Не адмін, тому не завантажуємо і знімаємо loading
+        } else if (userId !== null && userId !== undefined) {
+            // Якщо userId встановлено, але це не ADMIN_USER_ID, зупиняємо завантаження
+            setLoading(false);
         }
     }, [userId, fetchAllUsers]);
 
@@ -136,6 +136,7 @@ function AdminPanel({ db, auth, userId }) {
         setIsEditModalOpen(false);
         setSelectedUser(null);
         setEditFormData({ firstName: '', lastName: '', email: '', phone: '', address: '', city: '', country: '', currency: 'UAH' });
+        setSaveSuccess(false); // Скинути стан успіху при закритті
     };
 
     const handleEditUserSubmit = async (e) => {
@@ -184,6 +185,7 @@ function AdminPanel({ db, auth, userId }) {
     const closeDeleteConfirm = () => {
         setIsDeleteConfirmOpen(false);
         setSelectedUser(null);
+        setError(null); // Скинути помилку при закритті
     };
 
     const confirmDeleteUser = async () => {
@@ -194,18 +196,21 @@ function AdminPanel({ db, auth, userId }) {
 
         setIsSaving(true); // Використовуємо isSaving для індикатора видалення
         try {
-            // Видалення всіх підколекцій користувача (транзакції, бюджети, цілі, профайл)
-            const subcollections = ['transactions', 'budgets', 'goals'];
+            // Видалення всіх підколекцій користувача (транзакції, бюджети, цілі, рахунки, профайл)
+            const subcollections = ['transactions', 'budgets', 'goals', 'accounts']; // Додано 'accounts'
             for (const sub of subcollections) {
                 const subColRef = collection(db, `/artifacts/${appId}/users/${selectedUser.id}/${sub}`);
                 const subDocs = await getDocs(subColRef);
-                for (const doc of subDocs.docs) {
-                    await deleteDoc(doc.ref);
+                for (const d of subDocs.docs) { // Перейменовано змінну 'doc' на 'd' щоб уникнути конфлікту
+                    await deleteDoc(d.ref);
                 }
             }
             // Видалення профілю користувача
             const profileDocRef = doc(db, `/artifacts/${appId}/users/${selectedUser.id}/profile`, 'details');
-            await deleteDoc(profileDocRef);
+            const profileDocSnap = await getDoc(profileDocRef);
+            if (profileDocSnap.exists()) { // Перевірка існування перед видаленням
+                await deleteDoc(profileDocRef);
+            }
 
             // Видалення основного документа користувача
             const userDocRef = doc(db, `/artifacts/${appId}/users`, selectedUser.id);
@@ -245,18 +250,23 @@ function AdminPanel({ db, auth, userId }) {
         return user.id || 'Невідомий користувач';
     };
 
-    if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans']">Завантаження панелі адміністратора...</div>;
-    if (error) return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans'] text-red-500">Помилка: {error.message}</div>;
+    // Визначення імені для відображення поточного адміністратора
+    const currentAdminDisplayName = (userData && userData.firstName && userData.lastName)
+        ? `${userData.firstName} ${userData.lastName}`
+        : auth.currentUser?.email || 'Адміністратор';
+
+
+    if (loading) return <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 font-['DM Sans'] text-lg text-blue-700">Завантаження панелі адміністратора...</div>;
+    if (error) return <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 font-['DM Sans'] text-lg text-red-500">Помилка: {error.message}</div>;
 
     // Якщо користувач не є адміністратором, ми вже перенаправили його через useEffect
-    // Але на випадок, якщо рендеринг відбудеться до перенаправлення, покажемо пустий екран або повідомлення
     if (userId !== ADMIN_USER_ID) {
-        return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans'] text-gray-700">Доступ заборонено.</div>;
+        return null; // або можна повернути `<div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 font-['DM Sans'] text-lg text-gray-700">Доступ заборонено.</div>`;
     }
 
     return (
         <div className="flex min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 font-['DM Sans']">
-            {/* Бічна панель (скопійована з Dashboard для послідовності) */}
+            {/* Бічна панель */}
             <aside className="w-64 bg-white p-6 shadow-xl flex flex-col justify-between rounded-r-3xl border-r border-gray-100">
                 <div>
                     <div className="flex items-center mb-10 px-2">
@@ -279,14 +289,9 @@ function AdminPanel({ db, auth, userId }) {
                         <Link to="/transactions" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
                             <ClipboardDocumentListIcon className="h-5 w-5 mr-3" /> Transactions
                         </Link>
-                        {/* Видалено посилання на Categories */}
-                        {/* <Link to="/categories" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
-                            <Squares2X2Icon className="h-5 w-5 mr-3" /> Categories
-                        </Link> */}
                         <Link to="/admin" className="flex items-center text-blue-700 bg-blue-50 px-4 py-2.5 rounded-xl font-semibold transition-all duration-200 shadow-sm hover:shadow-md">
                             <UsersIcon className="h-5 w-5 mr-3" /> Admin Panel
                         </Link>
-                        {/* Посилання на "Налаштування профілю" завжди видиме */}
                         <Link to="/profile-settings" className="flex items-center text-gray-700 hover:text-blue-700 hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-colors duration-200">
                             <UserCircleIcon className="h-5 w-5 mr-3" /> Налаштування профілю
                         </Link>
@@ -296,24 +301,15 @@ function AdminPanel({ db, auth, userId }) {
 
             {/* Main content area */}
             <div className="flex-1 p-8 max-w-[1400px] mx-auto">
-                {/* Header (copied from Dashboard for consistency) */}
+                {/* Header */}
                 <header className="bg-white p-5 rounded-2xl shadow-lg flex justify-between items-center mb-8 border border-gray-100">
                     <h1 className="text-3xl font-extrabold text-gray-900">Панель адміністратора</h1>
                     <div className="flex items-center space-x-6">
-                        <div className="relative">
-                            <select
-                                className="appearance-none bg-gray-100 text-gray-800 font-semibold py-2.5 px-5 rounded-xl pr-10 cursor-pointer text-base focus:outline-none focus:ring-2 focus:ring-blue-300 transition-all duration-200 hover:bg-gray-200"
-                            >
-                                <option value="Budget 1">Budget 1</option>
-                                <option value="Budget 2">Budget 2</option>
-                            </select>
-                            <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-600 pointer-events-none" />
-                        </div>
                         <BellIcon className="h-7 w-7 text-gray-500 cursor-pointer hover:text-blue-600 transition-colors duration-200" />
                         <div className="flex items-center space-x-3">
                             <UserCircleIcon className="h-10 w-10 text-blue-500 rounded-full bg-blue-100 p-1" />
                             <div className="text-base">
-                                <p className="font-semibold text-gray-800">{auth.currentUser?.email || 'Адміністратор'}</p>
+                                <p className="font-semibold text-gray-800">{currentAdminDisplayName}</p>
                             </div>
                             <button
                                 onClick={handleLogout}
@@ -475,7 +471,7 @@ function AdminPanel({ db, auth, userId }) {
                             <h2 className="text-2xl font-bold text-gray-800 mb-5">Підтвердити видалення користувача</h2>
                             <p className="text-gray-700 text-base mb-6">
                                 Ви впевнені, що хочете видалити користувача "<span className="font-semibold">{getDisplayName(selectedUser)}</span>"?
-                                Усі дані цього користувача (профіль, транзакції, бюджети, цілі) будуть остаточно видалені. Цю дію не можна скасувати.
+                                Усі дані цього користувача (профіль, транзакції, бюджети, цілі, рахунки) будуть остаточно видалені. Цю дію не можна скасувати.
                             </p>
                             {error && (
                                 <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative text-base mb-4" role="alert">

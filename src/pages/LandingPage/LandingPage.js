@@ -140,7 +140,7 @@ function LandingPage() {
                     <div className="mb-16">
                         <h3 className="text-3xl font-bold text-gray-800 mb-8">В українських виданнях</h3>
                         <div className="flex flex-wrap justify-center items-center gap-10">
-                            {/* Приклади логотипів українських видань */}
+                            {/* Логотипи українських видань */}
                             <img src="https://placehold.co/150x60/ADD8E6/000000?text=Forbes.ua" alt="Forbes Ukraine Logo" className="h-16 cursor-pointer transform hover:scale-110 transition-transform duration-200" />
                             <img src="https://placehold.co/150x60/ADD8E6/000000?text=NV.ua" alt="NV Ukraine Logo" className="h-16 cursor-pointer transform hover:scale-110 transition-transform duration-200" />
                             <img src="https://placehold.co/150x60/ADD8E6/000000?text=Економічна+Правда" alt="Ekonomichna Pravda Logo" className="h-16 cursor-pointer transform hover:scale-110 transition-transform duration-200" />
@@ -151,7 +151,7 @@ function LandingPage() {
                     <div>
                         <h3 className="text-3xl font-bold text-gray-800 mb-8">У зарубіжних виданнях</h3>
                         <div className="flex flex-wrap justify-center items-center gap-10">
-                            {/* Приклади логотипів зарубіжних видань */}
+                            {/* Логотипи зарубіжних видань */}
                             <img src="https://placehold.co/150x60/ADD8E6/000000?text=TechCrunch" alt="TechCrunch Logo" className="h-16 cursor-pointer transform hover:scale-110 transition-transform duration-200" />
                             <img src="https://placehold.co/150x60/ADD8E6/000000?text=Bloomberg" alt="Bloomberg Logo" className="h-16 cursor-pointer transform hover:scale-110 transition-transform duration-200" />
                             <img src="https://placehold.co/150x60/ADD8E6/000000?text=The+Fintech+Times" alt="The Fintech Times Logo" className="h-16 cursor-pointer transform hover:scale-110 transition-transform duration-200" />
@@ -161,7 +161,7 @@ function LandingPage() {
                 </div>
             </section>
 
-            {/* NEW: Testimonials from Famous People Section */}
+            {/* From Famous People Section */}
             <section className="py-24 bg-gradient-to-br from-blue-50 via-gray-50 to-purple-50">
                 <div className="max-w-7xl mx-auto px-6 text-center">
                     <h2 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-16">
