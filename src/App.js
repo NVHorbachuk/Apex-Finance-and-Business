@@ -97,14 +97,13 @@ function App() {
         const firebaseConfig = typeof window.__firebase_config !== 'undefined'
             ? JSON.parse(window.__firebase_config)
             : {
-                apiKey: "AIzaSyDCm-4RcM0oNB1FWFjMOB9MEe2XtzHmeBE",
-                authDomain: "apex-finance-1928e.firebaseapp.com",
-                projectId: "apex-finance-1928e",
-                storageBucket: "apex-finance-1928e.appspot.com",
-                messagingSenderId: "1041175836092",
-                appId: "1:1041175836092:web:f8cfa3b568a092bb3b67b9",
-                measurementId: "G-Y6JSCG9346"
-            };
+            apiKey: "AIzaSyDxTPubMiQxHKm6spCtGqDfofZYvKjQL94",
+            authDomain: "apex-finance-business.firebaseapp.com",
+            projectId: "apex-finance-business",
+            storageBucket: "apex-finance-business.appspot.com",
+            messagingSenderId: "275896692835",
+            appId: "1:275896692835:web:b857092e4b5439cc96c856"
+};
 
         const initialAuthToken = typeof window.__initial_auth_token !== 'undefined'
             ? window.__initial_auth_token
