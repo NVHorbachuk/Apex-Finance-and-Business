@@ -97,12 +97,12 @@ function App() {
         const firebaseConfig = typeof window.__firebase_config !== 'undefined'
             ? JSON.parse(window.__firebase_config)
             : {
-            apiKey: "AIzaSyDxTPubMiQxHKm6spCtGqDfofZYvKjQL94",
-            authDomain: "apex-finance-business.firebaseapp.com",
-            projectId: "apex-finance-business",
-            storageBucket: "apex-finance-business.appspot.com",
-            messagingSenderId: "275896692835",
-            appId: "1:275896692835:web:b857092e4b5439cc96c856"
+             apiKey: "AIzaSyAjNK-xbIoEfxdQjtqtzN79RF42kmRelWc",
+  authDomain: "apex-finance-and-business.firebaseapp.com",
+  projectId: "apex-finance-and-business",
+  storageBucket: "apex-finance-and-business.appspot.com",
+  messagingSenderId: "80359224678",
+  appId: "1:80359224678:web:25b2a312a0cfe1af8544a7"
 };
 
         const initialAuthToken = typeof window.__initial_auth_token !== 'undefined'
