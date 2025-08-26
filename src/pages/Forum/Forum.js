@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
     HomeIcon, ClipboardDocumentListIcon, BellIcon, UserCircleIcon,
-    BanknotesIcon, CreditCardIcon, UsersIcon, ListBulletIcon, ChatBubbleLeftRightIcon, PlusIcon
+    BanknotesIcon, CreditCardIcon, UsersIcon, ListBulletIcon, PlusIcon
 } from '@heroicons/react/24/outline';
 
 const logoUrl = "/image.png";

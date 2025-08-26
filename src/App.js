@@ -6,45 +6,81 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, onAuthStateChanged, signInWithCustomToken, signInAnonymously } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 
-// Імпортуємо компоненти сторінок
-import Dashboard from './pages/Dashboard/Dashboard';
-import Login from './pages/Auth/Login';
-import Register from './pages/Auth/Register';
-import Goals from './pages/Goals/Goals';
-import Budgets from './pages/Budgets/Budgets';
-import Transactions from './pages/Transactions/Transactions';
-import Accounts from './pages/Accounts/Accounts';
-import AdminPanel from './pages/AdminPanel/AdminPanel';
-import ProfileSettings from './pages/ProfileSettings/ProfileSettings';
-import LandingPage from './pages/LandingPage/LandingPage';
-import NFTProjectPage from './pages/NFTProjectPage/NFTProjectPage';
-// Функція-обгортка для захищених маршрутів
-function ProtectedRoute({ children, isAuthenticated, db, auth, userId, userData, setGlobalUserData }) {
+// Імпортуємо всі компоненти сторінок з ваших папок, явно вказуючи розширення .js
+import Dashboard from './pages/Dashboard/Dashboard.js';
+import Login from './pages/Auth/Login.js';
+import Register from './pages/Auth/Register.js';
+import Goals from './pages/Goals/Goals.js';
+import Budgets from './pages/Budgets/Budgets.js';
+import Transactions from './pages/Transactions/Transactions.js';
+import Accounts from './pages/Accounts/Accounts.js';
+import AdminPanel from './pages/AdminPanel/AdminPanel.js';
+import ProfileSettings from './pages/ProfileSettings/ProfileSettings.js';
+import LandingPage from './pages/LandingPage/LandingPage.js';
+import NFTProjectPage from './pages/NFTProjectPage/NFTProjectPage.js';
+
+// Імпорт нових сторінок з вашої структури файлів
+import AboutUs from './pages/AboutUs/AboutUs.js';
+import Blog from './pages/Blog/Blog.js';
+import Careers from './pages/Careers/Careers.js';
+import ContactUs from './pages/ContactUs/ContactUs.js';
+import CookiePolicy from './pages/CookiePolicy/CookiePolicy.js';
+import Forum from './pages/Forum/Forum.js';
+import PrivacyPolicy from './pages/PrivacyPolicy/PrivacyPolicy.js';
+import Settings from './pages/Settings/Settings.js';
+import TermsOfUse from './pages/TermsOfUse/TermsOfUse.js';
+
+// Список публічних маршрутів, які не потребують автентифікації
+const publicRoutes = [
+    '/',
+    '/login',
+    '/register',
+    '/nft-project',
+    '/about-us',
+    '/blog',
+    '/careers',
+    '/contact-us',
+    '/cookie-policy',
+    '/faq',
+    '/privacy-policy',
+    '/terms-of-use',
+];
+
+
+// Функція-обгортка для захищених маршрутів (оновлено)
+function ProtectedRoute({ component: Component, isAuthenticated, db, auth, userId, userData, setGlobalUserData }) {
     const navigate = useNavigate();
     const currentLocation = window.location.pathname;
 
     useEffect(() => {
-        // Якщо користувач не автентифікований і намагається отримати доступ до захищеного маршруту (крім '/'), перенаправляємо на сторінку входу
-        if (isAuthenticated === false && currentLocation !== '/login' && currentLocation !== '/register' && currentLocation !== '/') {
+        // Якщо користувач не автентифікований і намагається отримати доступ до захищеного маршруту, перенаправляємо на сторінку входу
+        if (isAuthenticated === false && !publicRoutes.includes(currentLocation)) {
             navigate('/login');
         }
         // Якщо користувач автентифікований і знаходиться на сторінках входу/реєстрації, перенаправляємо на дашборд
         else if (isAuthenticated === true && (currentLocation === '/login' || currentLocation === '/register')) {
             navigate('/dashboard'); // Перенаправляємо на /dashboard
         }
-    }, [isAuthenticated, navigate, currentLocation]);
+    }, [isAuthenticated, navigate, currentLocation, Component]); // Додано Component до залежностей useEffect
 
     if (isAuthenticated === null) {
         return <div className="min-h-screen flex items-center justify-center bg-[#F7FAFC] font-['DM Sans']">Завантаження...</div>;
     }
 
-    // Якщо це "/" і користувач не автентифікований, дозволяємо відобразити LandingPage без db, auth, userId, userData
-    if (currentLocation === '/' && isAuthenticated === false) {
-        return children;
+    // Якщо маршрут публічний, дозволяємо відобразити його без автентифікації
+    // Цей блок є необхідним, якщо ProtectedRoute обгортає також публічні маршрути
+    if (!isAuthenticated && publicRoutes.includes(currentLocation)) {
+        return <Component db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData} />;
     }
 
-    return isAuthenticated ? React.cloneElement(children, { db, auth, userId, userData, setGlobalUserData }) : null;
+    // Якщо користувач автентифікований, рендеримо компонент
+    if (isAuthenticated) {
+        return <Component db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData} />;
+    }
+
+    return null; // У всіх інших випадках (наприклад, неавтентифікований користувач на захищеному маршруті), нічого не рендеримо, оскільки перенаправлення вже відбудеться
 }
+
 
 function App() {
     const [isAuthenticated, setIsAuthenticated] = useState(null);
@@ -114,13 +150,11 @@ function App() {
                     setUserId(user.uid);
 
                     const appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
-                    // Змінено шлях для user_profiles на users/${user.uid}/profile/details
                     const userProfileRef = doc(dbInstance, `/artifacts/${appId}/users/${user.uid}/profile`, 'details');
                     const userProfileSnap = await getDoc(userProfileRef);
                     if (userProfileSnap.exists()) {
                         setUserData({ id: user.uid, ...userProfileSnap.data() });
                     } else {
-                        // Якщо профайл не існує, створити його з базовими даними
                         const initialProfileData = {
                             email: user.email || '',
                             firstName: '',
@@ -157,48 +191,46 @@ function App() {
         <Router>
             <main className="flex-grow">
                 <Routes>
-                    {/* Нова головна сторінка */}
+                    {/* Публічні маршрути */}
                     <Route path="/" element={<LandingPage />} />
                     <Route path="/nft-project" element={<NFTProjectPage />} />
-                    {/* Передача setUserId та setUserData до компонента Login */}
                     <Route path="/login" element={<Login db={db} auth={auth} setUserId={setUserId} setUserData={setUserData} />} />
                     <Route path="/register" element={<Register db={db} auth={auth} />} />
-                    
-                    {/* Dashboard тепер на окремому маршруті */}
+                    <Route path="/about-us" element={<AboutUs />} />
+                    <Route path="/blog" element={<Blog />} />
+                    <Route path="/careers" element={<Careers />} />
+                    <Route path="/contact-us" element={<ContactUs />} />
+                    <Route path="/cookie-policy" element={<CookiePolicy />} />
+                    <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                    <Route path="/terms-of-use" element={<TermsOfUse />} />
+
+                    {/* Захищені маршрути (оновлено спосіб передачі компонента) */}
                     <Route path="/dashboard" element={
-                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData}>
-                            <Dashboard />
-                        </ProtectedRoute>
+                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData} component={Dashboard} />
                     } />
                     <Route path="/budgets" element={
-                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData}>
-                            <Budgets />
-                        </ProtectedRoute>
+                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData} component={Budgets} />
                     } />
                     <Route path="/transactions" element={
-                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData}>
-                            <Transactions />
-                        </ProtectedRoute>
+                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData} component={Transactions} />
                     } />
                     <Route path="/accounts" element={
-                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData}>
-                            <Accounts />
-                        </ProtectedRoute>
+                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData} component={Accounts} />
                     } />
                     <Route path="/goals" element={
-                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData}>
-                            <Goals />
-                        </ProtectedRoute>
+                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData} component={Goals} />
                     } />
                     <Route path="/admin" element={
-                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData}>
-                            <AdminPanel />
-                        </ProtectedRoute>
+                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData} component={AdminPanel} />
                     } />
                     <Route path="/profile-settings" element={
-                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData}>
-                            <ProfileSettings />
-                        </ProtectedRoute>
+                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData} component={ProfileSettings} />
+                    } />
+                    <Route path="/forum" element={
+                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData} component={Forum} />
+                    } />
+                     <Route path="/settings" element={
+                        <ProtectedRoute isAuthenticated={isAuthenticated} db={db} auth={auth} userId={userId} userData={userData} setGlobalUserData={setGlobalUserData} component={Settings} />
                     } />
                 </Routes>
             </main>
